@@ -1,0 +1,12 @@
+﻿# SDK 构建产物
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+node_modules/
+dist/
+.tsbuildinfo
