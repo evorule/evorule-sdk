@@ -1,4 +1,6 @@
-﻿# SDK 构建产物
+# SDK 构建产物
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
@@ -7,6 +9,25 @@ __pycache__/
 *.egg
 .pytest_cache/
 .mypy_cache/
+
+# TypeScript / Node.js
 node_modules/
 dist/
 .tsbuildinfo
+
+# Java / Gradle
+.gradle/
+build/
+*.class
+bin/
+
+# Go
+*.exe
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

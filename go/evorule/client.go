@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
 
 type Client struct {
 	baseURL    string
+	authToken  string
 	httpClient *http.Client
 }
 
@@ -106,8 +108,9 @@ type SessionFactEntry struct {
 	Value   *json.RawMessage `json:"value"`
 }
 
+// NewClient 创建不带认证的 Client（仅适用于 loopback 开发环境）
 func NewClient(baseURL string) *Client {
-	return &Client {
+	return &Client{
 		baseURL: baseURL,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -115,8 +118,58 @@ func NewClient(baseURL string) *Client {
 	}
 }
 
+// NewClientWithAuth 创建带 Bearer token 认证的 Client
+//
+// evorule-server 在非 loopback 地址上必须配置认证 token（B3 fail-closed），
+// 此时必须使用此构造函数。token 为空字符串时等价于 NewClient（不发送 Authorization 头）。
+func NewClientWithAuth(baseURL, token string) *Client {
+	c := NewClient(baseURL)
+	c.authToken = token
+	return c
+}
+
+// do 发送 HTTP 请求，自动注入 Authorization 头
+func (c *Client) do(req *http.Request) (*http.Response, error) {
+	if c.authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.authToken)
+	}
+	return c.httpClient.Do(req)
+}
+
+// doGet 发送 GET 请求（带认证）
+func (c *Client) doGet(urlStr string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, urlStr, nil)
+	if err != nil {
+		return nil, err
+	}
+	return c.do(req)
+}
+
+// doPost 发送 POST 请求（带认证 + Content-Type: application/json）
+func (c *Client) doPost(urlStr string, body []byte) (*http.Response, error) {
+	var bodyReader io.Reader
+	if body != nil {
+		bodyReader = bytes.NewBuffer(body)
+	}
+	req, err := http.NewRequest(http.MethodPost, urlStr, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return c.do(req)
+}
+
+// doDelete 发送 DELETE 请求（带认证）
+func (c *Client) doDelete(urlStr string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodDelete, urlStr, nil)
+	if err != nil {
+		return nil, err
+	}
+	return c.do(req)
+}
+
 func (c *Client) CreateSession() (*Session, error) {
-	resp, err := c.httpClient.Post(c.baseURL+"/api/sessions", "application/json", nil)
+	resp, err := c.doPost(c.baseURL+"/api/sessions", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +185,7 @@ func (c *Client) CreateSession() (*Session, error) {
 }
 
 func (c *Client) GetSession(id uint64) (*Session, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/sessions/%d", c.baseURL, id))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d", c.baseURL, id))
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +201,7 @@ func (c *Client) GetSession(id uint64) (*Session, error) {
 }
 
 func (c *Client) ListSessions() ([]Session, error) {
-	resp, err := c.httpClient.Get(c.baseURL + "/api/sessions")
+	resp, err := c.doGet(c.baseURL + "/api/sessions")
 	if err != nil {
 		return nil, err
 	}
@@ -166,11 +219,7 @@ func (c *Client) ListSessions() ([]Session, error) {
 }
 
 func (c *Client) CloseSession(id uint64) error {
-	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/api/sessions/%d", c.baseURL, id), nil)
-	if err != nil {
-		return err
-	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doDelete(fmt.Sprintf("%s/api/sessions/%d", c.baseURL, id))
 	if err != nil {
 		return err
 	}
@@ -187,10 +236,9 @@ func (c *Client) SubmitCommand(id uint64, instruction interface{}) error {
 	if err != nil {
 		return err
 	}
-	resp, err := c.httpClient.Post(
+	resp, err := c.doPost(
 		fmt.Sprintf("%s/api/sessions/%d/command", c.baseURL, id),
-		"application/json",
-		bytes.NewBuffer(data),
+		data,
 	)
 	if err != nil {
 		return err
@@ -203,7 +251,7 @@ func (c *Client) SubmitCommand(id uint64, instruction interface{}) error {
 }
 
 func (c *Client) GetState(id uint64) (*StateResponse, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/sessions/%d/state", c.baseURL, id))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/state", c.baseURL, id))
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +267,7 @@ func (c *Client) GetState(id uint64) (*StateResponse, error) {
 }
 
 func (c *Client) GetReplay(id uint64) (*ReplayResponse, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/sessions/%d/replay", c.baseURL, id))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/replay", c.baseURL, id))
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +283,7 @@ func (c *Client) GetReplay(id uint64) (*ReplayResponse, error) {
 }
 
 func (c *Client) Rewind(id, version uint64) (*RewindResponse, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/sessions/%d/rewind/%d", c.baseURL, id, version))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/rewind/%d", c.baseURL, id, version))
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +299,7 @@ func (c *Client) Rewind(id, version uint64) (*RewindResponse, error) {
 }
 
 func (c *Client) Diff(id, from, to uint64) (*DiffResponse, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/sessions/%d/diff?a=%d&b=%d", c.baseURL, id, from, to))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/diff?a=%d&b=%d", c.baseURL, id, from, to))
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +319,7 @@ func (c *Client) GetSharedFacts(prefix string) ([]SharedFact, error) {
 	if prefix != "" {
 		url += "?prefix=" + prefix
 	}
-	resp, err := c.httpClient.Get(url)
+	resp, err := c.doGet(url)
 	if err != nil {
 		return nil, err
 	}
@@ -291,10 +339,9 @@ func (c *Client) RecordUsedAtStartup(id uint64, factIDs []uint64) error {
 	if err != nil {
 		return err
 	}
-	resp, err := c.httpClient.Post(
+	resp, err := c.doPost(
 		fmt.Sprintf("%s/api/sessions/%d/used_at_startup", c.baseURL, id),
-		"application/json",
-		bytes.NewBuffer(data),
+		data,
 	)
 	if err != nil {
 		return err
@@ -307,11 +354,10 @@ func (c *Client) RecordUsedAtStartup(id uint64, factIDs []uint64) error {
 }
 
 func (c *Client) Interrupt(id uint64) error {
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/sessions/%d/interrupt", c.baseURL, id), nil)
-	if err != nil {
-		return err
-	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doPost(
+		fmt.Sprintf("%s/api/sessions/%d/interrupt", c.baseURL, id),
+		nil,
+	)
 	if err != nil {
 		return err
 	}
@@ -331,10 +377,9 @@ func (c *Client) SubmitIoResponse(id, requestID uint64, result interface{}, errM
 	if err != nil {
 		return err
 	}
-	resp, err := c.httpClient.Post(
+	resp, err := c.doPost(
 		fmt.Sprintf("%s/api/sessions/%d/io_response", c.baseURL, id),
-		"application/json",
-		bytes.NewBuffer(data),
+		data,
 	)
 	if err != nil {
 		return err
@@ -347,7 +392,7 @@ func (c *Client) SubmitIoResponse(id, requestID uint64, result interface{}, errM
 }
 
 func (c *Client) DebugPhase(id uint64) (string, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/sessions/%d/debug/phase", c.baseURL, id))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/debug/phase", c.baseURL, id))
 	if err != nil {
 		return "", err
 	}
@@ -365,7 +410,7 @@ func (c *Client) DebugPhase(id uint64) (string, error) {
 }
 
 func (c *Client) DebugQueue(id uint64) ([]json.RawMessage, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/sessions/%d/debug/queue", c.baseURL, id))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/debug/queue", c.baseURL, id))
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +432,7 @@ func (c *Client) DebugPendingIo(id uint64) ([]struct {
 	IoType    string `json:"io_type"`
 	DurationMs int64 `json:"duration_ms"`
 }, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/sessions/%d/debug/pending_io", c.baseURL, id))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/debug/pending_io", c.baseURL, id))
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +457,7 @@ func (c *Client) DebugPendingIo(id uint64) ([]struct {
 
 // Liveness 探针：GET /api/health/liveness
 func (c *Client) Liveness() (*ApiResponse, error) {
-	resp, err := c.httpClient.Get(c.baseURL + "/api/health/liveness")
+	resp, err := c.doGet(c.baseURL + "/api/health/liveness")
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +475,7 @@ func (c *Client) Liveness() (*ApiResponse, error) {
 // Readiness 探针：GET /api/health/readiness
 // 未就绪时返回 503 错误
 func (c *Client) Readiness() (*ApiResponse, error) {
-	resp, err := c.httpClient.Get(c.baseURL + "/api/health/readiness")
+	resp, err := c.doGet(c.baseURL + "/api/health/readiness")
 	if err != nil {
 		return nil, err
 	}
@@ -448,9 +493,8 @@ func (c *Client) Readiness() (*ApiResponse, error) {
 // ForkSession 从父会话的指定版本分叉新会话
 // POST /api/sessions/fork/{parent_id}?version=X
 func (c *Client) ForkSession(parentID, version uint64) (*ForkSessionResponse, error) {
-	resp, err := c.httpClient.Post(
+	resp, err := c.doPost(
 		fmt.Sprintf("%s/api/sessions/fork/%d?version=%d", c.baseURL, parentID, version),
-		"application/json",
 		nil,
 	)
 	if err != nil {
@@ -470,7 +514,7 @@ func (c *Client) ForkSession(parentID, version uint64) (*ForkSessionResponse, er
 // SharedFactSource 查询共享 Fact 的来源信息
 // GET /api/shared/facts/{fact_id}/source
 func (c *Client) SharedFactSource(factID uint64) (*SharedFact, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/shared/facts/%d/source", c.baseURL, factID))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/shared/facts/%d/source", c.baseURL, factID))
 	if err != nil {
 		return nil, err
 	}
@@ -488,7 +532,7 @@ func (c *Client) SharedFactSource(factID uint64) (*SharedFact, error) {
 // SharedFactUsedBy 查询使用了指定共享 Fact 的会话列表
 // GET /api/shared/facts/{fact_id}/used_by
 func (c *Client) SharedFactUsedBy(factID uint64) ([]uint64, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/shared/facts/%d/used_by", c.baseURL, factID))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/shared/facts/%d/used_by", c.baseURL, factID))
 	if err != nil {
 		return nil, err
 	}
@@ -509,7 +553,7 @@ func (c *Client) SharedFactUsedBy(factID uint64) ([]uint64, error) {
 // SessionAudit 查询会话审计报告
 // GET /api/sessions/{id}/audit
 func (c *Client) SessionAudit(id uint64) (json.RawMessage, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/sessions/%d/audit", c.baseURL, id))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/audit", c.baseURL, id))
 	if err != nil {
 		return nil, err
 	}
@@ -527,7 +571,7 @@ func (c *Client) SessionAudit(id uint64) (json.RawMessage, error) {
 // SessionAuditVerify 校验会话审计链完整性
 // GET /api/sessions/{id}/audit/verify
 func (c *Client) SessionAuditVerify(id uint64) (bool, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/sessions/%d/audit/verify", c.baseURL, id))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/audit/verify", c.baseURL, id))
 	if err != nil {
 		return false, err
 	}
@@ -548,7 +592,7 @@ func (c *Client) SessionAuditVerify(id uint64) (bool, error) {
 // SessionHistory 查询会话历史
 // GET /api/sessions/{id}/history
 func (c *Client) SessionHistory(id uint64) ([]HistoryEntry, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/sessions/%d/history", c.baseURL, id))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/history", c.baseURL, id))
 	if err != nil {
 		return nil, err
 	}
@@ -570,7 +614,7 @@ func (c *Client) SessionFactsByPrefix(id uint64, prefix string) ([]SessionFactEn
 	if prefix != "" {
 		url += "?prefix=" + prefix
 	}
-	resp, err := c.httpClient.Get(url)
+	resp, err := c.doGet(url)
 	if err != nil {
 		return nil, err
 	}
@@ -588,7 +632,7 @@ func (c *Client) SessionFactsByPrefix(id uint64, prefix string) ([]SessionFactEn
 // GetUsedAtStartup 查询会话启动时引用的共享 Fact ID 列表
 // GET /api/sessions/{id}/used_at_startup
 func (c *Client) GetUsedAtStartup(id uint64) ([]uint64, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/sessions/%d/used_at_startup", c.baseURL, id))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/used_at_startup", c.baseURL, id))
 	if err != nil {
 		return nil, err
 	}
@@ -618,10 +662,9 @@ func (c *Client) SessionJoin(id, targetID uint64, direction string) (*ApiRespons
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.httpClient.Post(
+	resp, err := c.doPost(
 		fmt.Sprintf("%s/api/sessions/%d/join", c.baseURL, id),
-		"application/json",
-		bytes.NewBuffer(data),
+		data,
 	)
 	if err != nil {
 		return nil, err
@@ -640,9 +683,8 @@ func (c *Client) SessionJoin(id, targetID uint64, direction string) (*ApiRespons
 // SessionLeave 离开所有集群协作
 // POST /api/sessions/{id}/leave
 func (c *Client) SessionLeave(id uint64) (*ApiResponse, error) {
-	resp, err := c.httpClient.Post(
+	resp, err := c.doPost(
 		fmt.Sprintf("%s/api/sessions/%d/leave", c.baseURL, id),
-		"application/json",
 		nil,
 	)
 	if err != nil {
@@ -662,7 +704,7 @@ func (c *Client) SessionLeave(id uint64) (*ApiResponse, error) {
 // SessionClusterStatus 查询会话集群成员
 // GET /api/sessions/{id}/cluster
 func (c *Client) SessionClusterStatus(id uint64) ([]uint64, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/api/sessions/%d/cluster", c.baseURL, id))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/cluster", c.baseURL, id))
 	if err != nil {
 		return nil, err
 	}

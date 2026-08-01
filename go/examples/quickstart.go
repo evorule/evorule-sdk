@@ -7,7 +7,11 @@ import (
 )
 
 func main() {
-	client := evorule.NewClient("http://localhost:18080")
+	// 无认证（仅 loopback 开发环境）
+	// client := evorule.NewClient("http://localhost:18080")
+
+	// 带 Bearer token 认证（evorule-server 非 loopback 部署时必须）
+	client := evorule.NewClientWithAuth("http://localhost:18080", "secret123")
 
 	fmt.Println("1. 创建会话...")
 	session, err := client.CreateSession()
