@@ -34,14 +34,20 @@
 
 ---
 
-## [6.0.0] - 2026-07-19
+## [Unreleased]
 
-首个**与 evorule v6.0.0 同步发布**的稳定版。
+### 计划
 
-### ⚠️ Breaking Changes
+- 🆕 配合 evorule-server 新增端点
+- 🆕 支持 WebSocket 替代 SSE(可选)
+- 🆕 自动重连 SSE(网络抖动场景)
+- ⚠️ 可能:从 CommonJS 转纯 ESM
 
-- **协议变更**:License 从 `MIT` 改为 `AGPL-3.0-or-later`(与 evorule 主项目同步)
-- **包信息更新**:`name` 字段仍为 `@evorule/sdk`(不变),但配套发布物(LICENSE / README / CHANGELOG 等)全部就位
+---
+
+## [0.1.0] - 2026-08-01
+
+evorule TypeScript SDK 首次推送版本。
 
 ### 🆕 新增
 
@@ -110,35 +116,9 @@
 
 ### 📜 协议
 
-- **SDK 代码**:AGPL-3.0-or-later(与 evorule 主项目同步)
+- **SDK 代码**:AGPL-3.0-or-later
 - **依赖的 evorule-server 协议**:HTTP + JSON
 - **`core_eval.json` 宪法**:CC0 1.0 公共领域
-
----
-
-## [0.1.0] - 2026 (早期内部版)
-
-内部早期版本,仅用于开发自测。未公开发布。
-
-### 概要
-
-- 基础 HTTP 客户端
-- 部分端点封装(健康检查 + 会话创建 + 提交命令)
-- 简单 SSE 接收
-- License:未指定
-
-> 注:0.1.0 内部版无 CHANGELOG 记录,具体变更已不可考。
-
----
-
-## [未发布] - 7.0.0 计划
-
-### 计划
-
-- 🆕 配合 evorule-server v7.0 新增端点
-- 🆕 支持 WebSocket 替代 SSE(可选)
-- 🆕 自动重连 SSE(网络抖动场景)
-- ⚠️ 可能:从 CommonJS 转纯 ESM
 
 ---
 
@@ -146,49 +126,13 @@
 
 | SDK 版本 | evorule-server | Node.js | TypeScript | 状态 |
 |---|---|---|---|---|
-| 6.0.0 | >= 6.0.0 | >= 18 | >= 5.0 | ✅ 稳定 |
-| 0.1.0 | >= 0.1.0 | >= 18 | >= 4.5 | ⚠️ 内部,弃用 |
-
----
-
-## 升级指南
-
-### 0.x → 6.0.0
-
-**Breaking changes**:
-- License 协议变更(MIT → AGPL-3.0-or-later)
-- 大量新 API,旧 API 完全保留(无移除)
-- 异常类层级更清晰
-
-**升级步骤**:
-1. `npm install @evorule/sdk@6`
-2. **审查 License 协议变更** — 如你的项目不能接受 AGPL-3.0,需要获取商业豁免(联系 evorulelab@gmail.com)
-3. 重新运行测试(API 兼容,但可能发现 License 兼容性)
-4. 如有 PR,可升级 `package.json` 锁定到 6.x
-
-### 6.0.x → 6.0.y(patch)
-
-无 breaking change,直接升级:
-```bash
-npm update @evorule/sdk
-```
-
-### 6.x → 7.x(未来 major)
-
-待定。7.0 计划见上方"未发布"。
+| 0.1.0 | >= 0.1.0 | >= 18 | >= 5.0 | ✅ 稳定 |
 
 ---
 
 ## 历史背景
 
 `@evorule/sdk` 是 EvoRule 生态的官方 TypeScript 客户端。EvoRule 反应式执行引擎本身在 [主项目](https://gitee.com/evo-rule-lab/evorule) 中,本 SDK 仅为 HTTP API 封装。
-
-早期 Python 版本(参见 `evorule-core-backup` 仓库)对设计原则有深远影响:
-- 规则即数据(JSON)
-- 自解释引擎
-- 透明可审计
-- 不可变状态
-- 确定性执行
 
 ---
 

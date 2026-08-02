@@ -390,13 +390,12 @@ mypy evorule/
 
 | SDK 版本 | EvoRule 服务端 | Python | 状态 |
 |---|---|---|---|
-| 6.0.0 | >= 6.0.0 | >= 3.10 | ✅ 稳定 |
-| 0.1.0 | >= 0.1.0 | >= 3.10 | ⚠️ 内部,弃用 |
+| 0.1.0 | >= 0.1.0 | >= 3.10 | ✅ 稳定 |
 
 向后兼容策略:
-- **Patch** (6.0.x → 6.0.y):**100% 兼容**
-- **Minor** (6.x → 6.y):**API 兼容**,可能有新方法
-- **Major** (6.x → 7.x):可能有 breaking changes,看 CHANGELOG
+- **Patch** (0.1.x → 0.1.y):**100% 兼容**
+- **Minor** (0.x → 0.y):**API 兼容**,0.x 阶段可能含 breaking change
+- **Major** (0.x → 1.x):可能有 breaking changes,看 CHANGELOG
 
 ---
 

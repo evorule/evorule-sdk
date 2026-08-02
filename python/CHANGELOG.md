@@ -34,14 +34,20 @@
 
 ---
 
-## [6.0.0] - 2026-07-19
+## [Unreleased]
 
-首个**与 evorule v6.0.0 同步发布**的稳定版。
+### 计划
 
-### ⚠️ Breaking Changes
+- 🆕 配合 evorule-server 新增端点
+- 🆕 支持 WebSocket 替代 SSE(可选)
+- 🆕 同步 API 封装(基于 `asyncio.run`)
+- ⚠️ 可能:Python 3.10 → 3.12 最低要求
 
-- **协议变更**:License 从 `MIT` 改为 `AGPL-3.0-or-later`(与 evorule 主项目同步)
-- **Python 版本要求**:`>= 3.10`(旧版用 `from __future__ import annotations` 兼容,但现在原生类型注解是主流)
+---
+
+## [0.1.0] - 2026-08-01
+
+evorule Python SDK 首次推送版本。
 
 ### 🆕 新增
 
@@ -92,13 +98,13 @@
 
 - **依赖**:`httpx >= 0.27`(异步 HTTP 客户端,替代 requests / aiohttp)
 - **dev 依赖**:`pytest >= 7` + `pytest-asyncio >= 0.21`(可选,`pip install evorule[dev]`)
+- **Python 版本要求**:`>= 3.10`(用到 `match` / `X | Y` / 内置泛型)
 
 ### 🔧 工程
 
 - **Type hints** 全开(`mypy --strict` 友好)
 - **Async 优先** — 所有方法都是 `async def`
 - **Context managers** — `async with` 自动关闭资源
-- **Python >= 3.10** — 用到 `match` / `X | Y` / 内置泛型
 
 ### 🔒 安全
 
@@ -110,43 +116,9 @@
 
 ### 📜 协议
 
-- **SDK 代码**:AGPL-3.0-or-later(与 evorule 主项目同步)
+- **SDK 代码**:AGPL-3.0-or-later
 - **依赖的 evorule-server 协议**:HTTP + JSON
 - **`core_eval.json` 宪法**:CC0 1.0 公共领域
-
----
-
-## [0.1.0] - 2026 (早期内部版)
-
-内部早期版本,仅用于开发自测。未公开发布。
-
-### 概要
-
-- 基础 HTTP 客户端(用 `aiohttp`)
-- 部分端点封装(健康检查 + 会话创建 + 提交命令)
-- 简单 SSE 接收
-- License:未指定
-
-> 注:0.1.0 内部版无 CHANGELOG 记录,具体变更已不可考。
-
-### 已知差异(相比 0.1.0)
-
-- **HTTP 客户端**:`aiohttp` → `httpx`(更现代的 API,内置 HTTP/2 支持)
-- **异步**:`async/await` 全程 + `async with`(0.1.0 用 callback / `with`)
-- **类型**:`TypedDict` 风格 → 完整 dataclass / Pydantic 风格(如有)
-- **测试**:`unittest` → `pytest` + `pytest-asyncio`
-
----
-
-## [未发布] - 7.0.0 计划
-
-### 计划
-
-- 🆕 配合 evorule-server v7.0 新增端点
-- 🆕 支持 WebSocket 替代 SSE(可选)
-- 🆕 同步 API 封装(基于 `asyncio.run`)
-- 🆕 `httpx` 替换为 `aiohttp` 反向考虑
-- ⚠️ 可能:Python 3.10 → 3.12 最低要求
 
 ---
 
@@ -154,38 +126,7 @@
 
 | SDK 版本 | evorule-server | Python | 状态 |
 |---|---|---|---|
-| 6.0.0 | >= 6.0.0 | >= 3.10 | ✅ 稳定 |
-| 0.1.0 | >= 0.1.0 | >= 3.10 | ⚠️ 内部,弃用 |
-
----
-
-## 升级指南
-
-### 0.x → 6.0.0
-
-**Breaking changes**:
-- License 协议变更(MIT → AGPL-3.0-or-later)
-- 异步 API 标准化(0.1.0 部分方法可能是同步的)
-- 异常类层级更清晰
-- 类型提示更严格(0.1.0 部分用 `Any`)
-
-**升级步骤**:
-1. `pip install --upgrade evorule`
-2. **审查 License 协议变更** — 如你的项目不能接受 AGPL-3.0,需要获取商业豁免(联系 evorulelab@gmail.com)
-3. **检查同步调用点** — 所有方法现在是 `async`,需加 `await`
-4. **更新 import** — 异常类名可能有变
-5. 重新运行测试
-
-### 6.0.x → 6.0.y(patch)
-
-无 breaking change,直接升级:
-```bash
-pip install --upgrade evorule
-```
-
-### 6.x → 7.x(未来 major)
-
-待定。7.0 计划见上方"未发布"。
+| 0.1.0 | >= 0.1.0 | >= 3.10 | ✅ 稳定 |
 
 ---
 
@@ -194,13 +135,6 @@ pip install --upgrade evorule
 `evorule` Python SDK 是 EvoRule 生态的官方 Python 客户端。EvoRule 反应式执行引擎本身在 [主项目](https://gitee.com/evo-rule-lab/evorule) 中,本 SDK 仅为 HTTP API 封装。
 
 与 [TypeScript SDK](../typescript) 镜像对应,提供同等 API 的 Python 实现。
-
-早期 Python 版本(参见 `evorule-core-backup` 仓库)对设计原则有深远影响:
-- 规则即数据(JSON)
-- 自解释引擎
-- 透明可审计
-- 不可变状态
-- 确定性执行
 
 ---
 
