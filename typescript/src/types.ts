@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * evorule SDK 类型定义
  */
@@ -25,11 +26,25 @@ export interface ApiResponse {
   fact_id: number | null;
 }
 
-/** 会话状态快照 */
+/** 会话状态快照（GET /api/sessions/{id}/state）
+ *
+ * server 返回 {payload, queue, version, reactor: {phase, causal_depth, ...}}
+ */
 export interface SessionState {
   payload: Record<string, Json>;
   queue: Json[];
   version: number;
+  reactor?: ReactorInfo;
+}
+
+/** 反应器运行时信息（SessionState.reactor 子对象） */
+export interface ReactorInfo {
+  phase: string | null;
+  causal_depth: number | null;
+  structural_invariant_violations: number;
+  pending_io_count: number | null;
+  current_step: number | null;
+  [key: string]: Json | undefined;
 }
 
 /** 创建会话响应 */
@@ -43,14 +58,21 @@ export interface ListSessionsResponse {
   sessions: number[];
 }
 
-/** Replay 响应（Fact 列表） */
-export interface ReplayResponse {
-  facts: EventData[];
-}
+/** Replay 响应（GET /api/sessions/{id}/replay）
+ *
+ * server 直接返回 Fact 数组（非对象包裹），每项为 fact + version 字段
+ */
+export type ReplayResponse = EventData[];
 
-/** Rewind 响应（回滚后的状态快照） */
+/** Rewind 响应（GET /api/sessions/{id}/rewind?version=X）
+ *
+ * server 返回 {session_id, target_version, payload, queue, actual_version}
+ * actual_version 是实际回滚到的版本（可能因版本间隙与 target_version 不同）
+ */
 export interface RewindResponse {
-  version: number;
+  session_id: number;
+  target_version: number;
+  actual_version: number;
   payload: Record<string, Json>;
   queue: Json[];
 }
@@ -68,13 +90,19 @@ export interface DiffChangedEntry {
   new_value: Json;
 }
 
-/** Diff 响应（两个版本的 payload 对比） */
+/** Diff 响应（GET /api/sessions/{id}/diff?a=X&b=Y）
+ *
+ * server 返回 {session_id, from_version, to_version, added, removed, changed, unchanged, summary}
+ */
 export interface DiffResponse {
-  version_a: number;
-  version_b: number;
+  session_id: number;
+  from_version: number;
+  to_version: number;
   added: DiffEntry[];
   removed: DiffEntry[];
   changed: DiffChangedEntry[];
+  unchanged: DiffEntry[];
+  summary?: Json;
 }
 
 /** 共享 Fact */
@@ -118,7 +146,7 @@ export interface ForkSessionResponse {
 
 /** audit/verify 响应 */
 export interface AuditVerifyResponse {
-  valid: boolean;
+  verified: boolean;
   session_id: number;
 }
 
@@ -140,6 +168,49 @@ export interface SessionFactEntry {
 export interface UsedAtStartupResponse {
   session_id: number;
   fact_ids: number[];
+}
+
+// ===== S4 端点补齐：会话运行时状态查询 =====
+
+/** GET /api/sessions/{id}/finished 响应 */
+export interface FinishedResponse {
+  session_id: number;
+  finished: boolean;
+}
+
+/** GET /api/sessions/{id}/causal_depth 响应 */
+export interface CausalDepthResponse {
+  session_id: number;
+  causal_depth: number;
+}
+
+/** GET /api/sessions/{id}/invariants 响应 */
+export interface InvariantsResponse {
+  session_id: number;
+  structural_invariant_violations: number;
+}
+
+/** GET /api/sessions/{id}/pending_io_count 响应 */
+export interface PendingIoCountResponse {
+  session_id: number;
+  pending_io_count: number;
+}
+
+/** GET /api/sessions/{id}/step 响应 */
+export interface StepResponse {
+  session_id: number;
+  current_step: number;
+}
+
+/** GET /api/sessions/{id}/snapshot 响应 */
+export interface SnapshotResponse {
+  session_id: number;
+  finished: boolean;
+  phase: string;
+  version: number;
+  steps: number;
+  pending_io_count: number;
+  structural_invariant_violations: number;
 }
 
 /** shared_fact_source 响应 */

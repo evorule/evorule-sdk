@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 package com.evorule;
 
 import com.evorule.exceptions.*;
@@ -162,13 +163,13 @@ public class EvoruleClient implements AutoCloseable {
         return facts;
     }
 
-    public SessionState rewind(long id, long version) throws EvoruleException, IOException, InterruptedException {
-        HttpRequest request = requestBuilder("/api/sessions/" + id + "/rewind/" + version)
+    public RewindResponse rewind(long id, long version) throws EvoruleException, IOException, InterruptedException {
+        HttpRequest request = requestBuilder("/api/sessions/" + id + "/rewind?version=" + version)
                 .GET()
                 .build();
         HttpResponse<String> response = sendRequest(request);
         JsonNode root = parseJson(response.body());
-        return objectMapper.treeToValue(root, SessionState.class);
+        return objectMapper.treeToValue(root, RewindResponse.class);
     }
 
     public DiffResult diff(long id, long from, long to) throws EvoruleException, IOException, InterruptedException {
@@ -304,6 +305,69 @@ public class EvoruleClient implements AutoCloseable {
         return root.get("pending_io");
     }
 
+    // ===== S4 端点补齐：会话运行时状态查询 =====
+
+    /** 查询会话是否已完成（GET /api/sessions/{id}/finished） */
+    public boolean isFinished(long id) throws EvoruleException, IOException, InterruptedException {
+        HttpRequest request = requestBuilder("/api/sessions/" + id + "/finished")
+                .GET()
+                .build();
+        HttpResponse<String> response = sendRequest(request);
+        JsonNode root = parseJson(response.body());
+        return root.has("finished") && root.get("finished").asBoolean();
+    }
+
+    /** 查询因果链深度（GET /api/sessions/{id}/causal_depth） */
+    public long causalDepth(long id) throws EvoruleException, IOException, InterruptedException {
+        HttpRequest request = requestBuilder("/api/sessions/" + id + "/causal_depth")
+                .GET()
+                .build();
+        HttpResponse<String> response = sendRequest(request);
+        JsonNode root = parseJson(response.body());
+        return root.has("causal_depth") ? root.get("causal_depth").asLong() : 0;
+    }
+
+    /** 查询结构不变式违规计数（GET /api/sessions/{id}/invariants） */
+    public long invariants(long id) throws EvoruleException, IOException, InterruptedException {
+        HttpRequest request = requestBuilder("/api/sessions/" + id + "/invariants")
+                .GET()
+                .build();
+        HttpResponse<String> response = sendRequest(request);
+        JsonNode root = parseJson(response.body());
+        return root.has("structural_invariant_violations")
+                ? root.get("structural_invariant_violations").asLong() : 0;
+    }
+
+    /** 查询待处理 I/O 数量（GET /api/sessions/{id}/pending_io_count） */
+    public long pendingIoCount(long id) throws EvoruleException, IOException, InterruptedException {
+        HttpRequest request = requestBuilder("/api/sessions/" + id + "/pending_io_count")
+                .GET()
+                .build();
+        HttpResponse<String> response = sendRequest(request);
+        JsonNode root = parseJson(response.body());
+        return root.has("pending_io_count") ? root.get("pending_io_count").asLong() : 0;
+    }
+
+    /** 查询当前执行步数（GET /api/sessions/{id}/step） */
+    public long currentStep(long id) throws EvoruleException, IOException, InterruptedException {
+        HttpRequest request = requestBuilder("/api/sessions/" + id + "/step")
+                .GET()
+                .build();
+        HttpResponse<String> response = sendRequest(request);
+        JsonNode root = parseJson(response.body());
+        return root.has("current_step") ? root.get("current_step").asLong() : 0;
+    }
+
+    /** 查询完整状态快照（GET /api/sessions/{id}/snapshot） */
+    public SnapshotResponse snapshot(long id) throws EvoruleException, IOException, InterruptedException {
+        HttpRequest request = requestBuilder("/api/sessions/" + id + "/snapshot")
+                .GET()
+                .build();
+        HttpResponse<String> response = sendRequest(request);
+        JsonNode root = parseJson(response.body());
+        return objectMapper.treeToValue(root, SnapshotResponse.class);
+    }
+
     public JsonNode health() throws EvoruleException, IOException, InterruptedException {
         HttpRequest request = requestBuilder("/api/health")
                 .GET()
@@ -359,22 +423,22 @@ public class EvoruleClient implements AutoCloseable {
         return root.has("valid") && root.get("valid").asBoolean();
     }
 
-    public List<Fact> sessionHistory(long id) throws EvoruleException, IOException, InterruptedException {
+    public List<HistoryEntry> sessionHistory(long id) throws EvoruleException, IOException, InterruptedException {
         HttpRequest request = requestBuilder("/api/sessions/" + id + "/history")
                 .GET()
                 .build();
         HttpResponse<String> response = sendRequest(request);
         JsonNode root = parseJson(response.body());
-        List<Fact> facts = new ArrayList<>();
+        List<HistoryEntry> entries = new ArrayList<>();
         if (root.isArray()) {
             for (JsonNode node : root) {
-                facts.add(objectMapper.treeToValue(node, Fact.class));
+                entries.add(objectMapper.treeToValue(node, HistoryEntry.class));
             }
         }
-        return facts;
+        return entries;
     }
 
-    public List<Fact> sessionFactsByPrefix(long id, String prefix)
+    public List<SessionFactEntry> sessionFactsByPrefix(long id, String prefix)
             throws EvoruleException, IOException, InterruptedException {
         String url = "/api/sessions/" + id + "/facts";
         if (prefix != null && !prefix.isEmpty()) {
@@ -385,15 +449,22 @@ public class EvoruleClient implements AutoCloseable {
                 .build();
         HttpResponse<String> response = sendRequest(request);
         JsonNode root = parseJson(response.body());
-        List<Fact> facts = new ArrayList<>();
+        List<SessionFactEntry> entries = new ArrayList<>();
         if (root.isArray()) {
             for (JsonNode node : root) {
-                facts.add(objectMapper.treeToValue(node, Fact.class));
+                entries.add(objectMapper.treeToValue(node, SessionFactEntry.class));
             }
         }
-        return facts;
+        return entries;
     }
 
+    /**
+     * 加入集群协作（POST /api/sessions/{id}/join）
+     *
+     * @deprecated evorule-server 已移除 cluster 端点（多 reactor 协作原语属应用层功能）。
+     *             调用此方法将返回 404。保留代码供未来 cluster 模块重新启用时使用。
+     */
+    @Deprecated
     public JsonNode sessionJoin(long id, long targetId, String direction)
             throws EvoruleException, IOException, InterruptedException {
         ObjectNode body = objectMapper.createObjectNode();
@@ -409,6 +480,12 @@ public class EvoruleClient implements AutoCloseable {
         return parseJson(response.body());
     }
 
+    /**
+     * 离开所有集群协作（POST /api/sessions/{id}/leave）
+     *
+     * @deprecated evorule-server 已移除 cluster 端点。调用此方法将返回 404。
+     */
+    @Deprecated
     public JsonNode sessionLeave(long id) throws EvoruleException, IOException, InterruptedException {
         HttpRequest request = requestBuilder("/api/sessions/" + id + "/leave")
                 .POST(HttpRequest.BodyPublishers.noBody())
@@ -417,6 +494,12 @@ public class EvoruleClient implements AutoCloseable {
         return parseJson(response.body());
     }
 
+    /**
+     * 查询会话集群成员（GET /api/sessions/{id}/cluster）
+     *
+     * @deprecated evorule-server 已移除 cluster 端点。调用此方法将返回 404。
+     */
+    @Deprecated
     public List<Long> sessionClusterStatus(long id) throws EvoruleException, IOException, InterruptedException {
         HttpRequest request = requestBuilder("/api/sessions/" + id + "/cluster")
                 .GET()
@@ -434,49 +517,61 @@ public class EvoruleClient implements AutoCloseable {
     }
 
     public Stream<SseEvent> streamEvents(long sessionId) throws EvoruleException, IOException, InterruptedException {
-        String url = baseURL + "/api/sessions/" + sessionId + "/events";
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
+        HttpRequest request = requestBuilder("/api/sessions/" + sessionId + "/events")
                 .header("Accept", "text/event-stream")
                 .GET()
                 .build();
-        if (authToken != null && !authToken.isEmpty()) {
-            request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .header("Accept", "text/event-stream")
-                    .header("Authorization", "Bearer " + authToken)
-                    .GET()
-                    .build();
-        }
         HttpResponse<java.io.InputStream> response = httpClient.send(
                 request, HttpResponse.BodyHandlers.ofInputStream());
         int status = response.statusCode();
+        if (status == 401) {
+            throw new AuthenticationException("Authentication failed");
+        }
         if (status >= 400) {
             throw new EvoruleException("Failed to open SSE stream: status " + status);
         }
         BufferedReader reader = new BufferedReader(new InputStreamReader(response.body(), StandardCharsets.UTF_8));
-        return Stream.generate(() -> {
+        Stream<SseEvent> stream = Stream.generate(() -> {
             try {
                 String line;
                 StringBuilder eventData = new StringBuilder();
                 String eventType = null;
+                String sseId = null; // SSE id: 行（规范来源）
                 while ((line = reader.readLine()) != null) {
                     if (line.isEmpty()) {
                         if (eventData.length() > 0 || eventType != null) {
                             JsonNode data = eventData.length() > 0
                                     ? objectMapper.readTree(eventData.toString())
                                     : objectMapper.createObjectNode();
-                            long id = data.has("id") ? data.get("id").asLong() : 0;
+                            // S2 修复：优先用 SSE id: 行的 id，回退到 data JSON 的 id 字段
+                            long id;
+                            if (sseId != null && !sseId.isEmpty()) {
+                                try {
+                                    id = Long.parseLong(sseId);
+                                } catch (NumberFormatException e) {
+                                    id = data.has("id") ? data.get("id").asLong() : 0;
+                                }
+                            } else {
+                                id = data.has("id") ? data.get("id").asLong() : 0;
+                            }
                             return new SseEvent(eventType != null ? eventType : "message", id, data);
                         }
                         eventData.setLength(0);
                         eventType = null;
+                        sseId = null;
                         continue;
                     }
                     if (line.startsWith("event:")) {
                         eventType = line.substring(6).trim();
+                    } else if (line.startsWith("id:")) {
+                        sseId = line.substring(3).trim();
                     } else if (line.startsWith("data:")) {
-                        eventData.append(line.substring(5).trim());
+                        // SSE 规范：data: 后有一个可选空格，需去掉
+                        String dataLine = line.substring(5);
+                        if (dataLine.startsWith(" ")) {
+                            dataLine = dataLine.substring(1);
+                        }
+                        eventData.append(dataLine);
                     }
                 }
                 return null;
@@ -484,6 +579,14 @@ public class EvoruleClient implements AutoCloseable {
                 throw new RuntimeException(e);
             }
         }).takeWhile(event -> event != null);
+        // N1 修复：确保 Stream 关闭时释放底层 reader/inputStream，避免 socket 泄漏
+        return stream.onClose(() -> {
+            try {
+                reader.close();
+            } catch (IOException ignored) {
+                // 忽略关闭时的错误
+            }
+        });
     }
 
     public void close() {

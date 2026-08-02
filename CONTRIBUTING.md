@@ -81,7 +81,7 @@ cd java
 
 ## 版本策略
 
-SDK 采用**独立版本号**,不跟随 evorule 或 evorule-server。详见 [VERSION_STRATEGY.md](VERSION_STRATEGY.md)。
+SDK 采用**独立版本号**。详见 [VERSION_STRATEGY.md](VERSION_STRATEGY.md)。
 
 ## 协议
 

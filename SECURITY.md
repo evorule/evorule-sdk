@@ -63,4 +63,4 @@ SDK 依赖的第三方库如有已知漏洞,请报告。我们将及时升级。
 
 ---
 
-*本安全政策与 [evorule-server 安全政策](https://gitee.com/evo-rule-lab/evorule-server/blob/main/SECURITY.md)配合使用。*
+*本安全政策适用于 evorule-sdk 仓。*

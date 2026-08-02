@@ -19,9 +19,7 @@
 
 ---
 
-> 🇨🇳 **本仓库为 EvoRule 中文版,主仓库发布在 [Gitee](https://gitee.com/evorulelab/evorule)。**
-> Python SDK 也在 Gitee 同步发布,包名为 `evorule`。
-> PyPI 上发布的是镜像。
+> Python SDK 在 Gitee 和 PyPI 同步发布,包名为 `evorule`。
 
 ---
 
@@ -37,8 +35,7 @@
 - ✅ 想做数据科学 / 自动化脚本 / 后端服务集成 EvoRule 的开发者
 
 **不适合谁**:
-- ❌ 想直接操作 EvoRule 内核 — 用 Rust 直接调 `tier1-reactor` crate
-- ❌ 想跑 LLM Agent — 用 [`evo-agent`](https://gitee.com/evorulelab/evo-agent)
+- ❌ 想直接操作 EvoRule 内核 — 用 Rust 核心 crate
 
 ---
 
@@ -422,7 +419,6 @@ SDK 是 `evorule-server` HTTP API 的**薄封装**:
 - ✅ `async with` 上下文管理器(自动关闭资源)
 
 **不包含**:
-- ❌ LLM 客户端(用 [`evo-agent`](https://gitee.com/evorulelab/evo-agent))
 - ❌ 业务规则 DSL(用 `core_eval.json` 加载到服务端)
 - ❌ 缓存 / 队列(交给服务端)
 
@@ -436,7 +432,7 @@ SDK 是 `evorule-server` HTTP API 的**薄封装**:
 | **依赖的 evorule-server 协议** | HTTP + JSON |
 | **`core_eval.json`**(宪法) | CC0 1.0 公共领域 |
 
-详见 [LICENSE](LICENSE) / [DUAL_LICENSE.md](DUAL_LICENSE.md) / [NOTICE.md](NOTICE.md)。
+详见 [LICENSE](../LICENSE) / [NOTICE.md](../NOTICE.md)。
 
 ---
 
@@ -444,7 +440,7 @@ SDK 是 `evorule-server` HTTP API 的**薄封装**:
 
 欢迎 PR / Issue / Discussion!
 
-请先读 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [CLA-individual.md](CLA-individual.md)。
+请先读 [CONTRIBUTING.md](../CONTRIBUTING.md)。
 
 **SDK 特定贡献指南**:
 - API 设计保持稳定,新增方法需 minor 版本
@@ -456,7 +452,7 @@ SDK 是 `evorule-server` HTTP API 的**薄封装**:
 
 ## 安全
 
-如发现安全漏洞,按 [SECURITY.md](SECURITY.md) 流程报告。
+如发现安全漏洞,按 [SECURITY.md](../SECURITY.md) 流程报告。
 
 **SDK 特有的安全考虑**:
 - `token` 参数 — 不要硬编码,使用环境变量
@@ -467,17 +463,9 @@ SDK 是 `evorule-server` HTTP API 的**薄封装**:
 
 ---
 
-## 相关项目
-
-- **EvoRule 主项目**: https://gitee.com/evorulelab/evorule — 反应式执行引擎
-- **evo-agent**: https://gitee.com/evorulelab/evo-agent — LLM Agent 编排
-- **TypeScript SDK**: https://gitee.com/evorulelab/evorule/tree/master/sdk/typescript — 同等 API 的 TypeScript 实现
-
----
-
 ## 商标
 
-"EvoRule" 名称和徽标是 EvoRule Project 的商标。详见 [TRADEMARK.md](TRADEMARK.md)。
+"EvoRule" 名称和徽标是 EvoRule Project 的商标。详见 [TRADEMARK.md](../TRADEMARK.md)。
 
 ---
 

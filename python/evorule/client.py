@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """evorule SDK 主客户端
 
 通过 HTTP API 与 evorule-server 交互，提供会话管理、健康检查等接口。

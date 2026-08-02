@@ -1,0 +1,55 @@
+# evorule-sdk 仓 CI
+# 各仓独立发布,不依赖其他仓的代码。
+
+stages:
+  - validate
+  - test
+
+# === 0. 文档安全 + 版本一致性（各仓独立发布 · 强阻塞）===
+validate-pr:
+  stage: validate
+  image: mcr.microsoft.com/powershell:lts-nanoserver-1809
+  script:
+    # 多语言版本一致性
+    - pwsh -NoProfile -File scripts/validate-version.ps1
+    - pwsh -NoProfile -File scripts/validate-changelog.ps1 -AllowUnreleased
+    - pwsh -NoProfile -File scripts/validate-license.ps1
+    - pwsh -NoProfile -File scripts/validate-release.ps1 -SkipTagCheck
+    # 文档安全 + 引用完整性 + 基调合规（强阻塞）
+    - python3 --version || python --version
+    - python scripts/check_doc_safety.py --skip-git
+
+# === 1. Python SDK 测试 ===
+python-test:
+  stage: test
+  image: python:3.10-slim
+  script:
+    - cd python
+    - pip install -e ".[dev]"
+    - pytest
+
+# === 2. TypeScript SDK 测试 ===
+typescript-test:
+  stage: test
+  image: node:18-slim
+  script:
+    - cd typescript
+    - npm install
+    - npm run typecheck
+    - npm test
+
+# === 3. Go SDK 测试 ===
+go-test:
+  stage: test
+  image: golang:1.21
+  script:
+    - cd go
+    - go test ./...
+
+# === 4. Java SDK 测试 ===
+java-test:
+  stage: test
+  image: gradle:7-jdk17
+  script:
+    - cd java
+    - ./gradlew test

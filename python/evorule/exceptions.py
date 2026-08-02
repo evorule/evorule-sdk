@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """evorule SDK 异常定义"""
 
 from __future__ import annotations

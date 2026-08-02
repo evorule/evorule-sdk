@@ -4,10 +4,7 @@
   SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# EvoRule 商标政策（evorule-sdk 仓）
-
-> **本仓与 [evorule 主仓](https://gitee.com/evo-rule-lab/evorule)共用同一商标政策。**
-> 完整政策见主仓 [TRADEMARK.md](https://gitee.com/evo-rule-lab/evorule/blob/main/TRADEMARK.md)。
+# EvoRule 商标政策
 
 ---
 
@@ -51,8 +48,3 @@
 ## 联系方式
 
 - **商标使用许可申请**:<evorulelab@gmail.com>（主题加 `[Trademark]`）
-- **完整政策**:[evorule 主仓 TRADEMARK.md](https://gitee.com/evo-rule-lab/evorule/blob/main/TRADEMARK.md)
-
----
-
-*本政策为 evorule 主仓商标政策的子集,完整法律条款以主仓为准。*

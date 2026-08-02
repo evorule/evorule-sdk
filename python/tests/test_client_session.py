@@ -535,7 +535,7 @@ class TestSessionTimeMachine:
 
         result = await session.rewind(3)
         assert result["version"] == 3
-        mock_http.get.assert_called_once_with("/api/sessions/1/rewind/3")
+        mock_http.get.assert_called_once_with("/api/sessions/1/rewind?version=3")
 
     @pytest.mark.asyncio
     async def test_diff(self):
@@ -600,7 +600,7 @@ class TestSessionClose:
     async def test_close_swallows_exceptions(self):
         """关闭时网络错误应被忽略"""
         mock_http = MagicMock()
-        mock_http.delete = AsyncMock(side_effect=Exception("network error"))
+        mock_http.delete = AsyncMock(side_effect=httpx.ConnectError("network error"))
         mock_client = MagicMock()
         mock_client._http = mock_http
         session = Session(mock_client, 1)

@@ -34,6 +34,12 @@ DEFAULT_SERVER_BIN = os.path.join(
     PROJECT_ROOT, ".build", "rust", "debug", "evorule-server.exe"
 )
 SERVER_BIN = os.environ.get("EVORULE_SERVER_BIN", DEFAULT_SERVER_BIN)
+# evorule-server 的工作目录（需要读取 resources/core_eval.json 等文件）
+# 默认从 SERVER_BIN 推断：.../target/debug/evorule-server.exe → .../
+SERVER_CWD = os.environ.get(
+    "EVORULE_SERVER_CWD",
+    os.path.dirname(os.path.dirname(os.path.dirname(SERVER_BIN))),
+)
 
 
 class TestResult:
@@ -70,7 +76,7 @@ def start_server() -> subprocess.Popen:
 
     proc = subprocess.Popen(
         [SERVER_BIN, "--addr", addr, "--log-level", "error"],
-        cwd=PROJECT_ROOT,
+        cwd=SERVER_CWD,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -153,7 +159,7 @@ async def test_02_command_and_sse(tr: TestResult) -> None:
                     break
 
         task = asyncio.create_task(consume_events())
-        await asyncio.sleep(0.3)
+        await asyncio.sleep(1.0)  # 等待 SSE 连接建立
 
         await session.command({"type": "increment", "params": {"attr": "x", "delta": 5}})
         tr.ok("command (increment x +5)")
@@ -240,13 +246,13 @@ async def test_04_time_machine(tr: TestResult) -> None:
             tr.ok(f"rewind state check (version={state_after['version']})")
 
         diff = await session.diff(1, v3)
-        if "version_a" not in diff or "version_b" not in diff:
+        if "from_version" not in diff or "to_version" not in diff:
             tr.fail("diff", f"missing version fields: {list(diff.keys())}")
         elif "added" not in diff or "removed" not in diff or "changed" not in diff:
             tr.fail("diff", f"missing diff fields: {list(diff.keys())}")
         else:
             tr.ok(
-                f"diff(v1->v{v3}): version_a={diff['version_a']}, "
+                f"diff(v1->v{v3}): from_version={diff['from_version']}, "
                 f"added={len(diff['added'])}, removed={len(diff['removed'])}, "
                 f"changed={len(diff['changed'])}"
             )
@@ -398,23 +404,18 @@ async def test_11_history(tr: TestResult) -> None:
 
 
 async def test_12_cluster(tr: TestResult) -> None:
-    print("\n[Scenario 12] Cluster collaboration")
+    print("\n[Scenario 12] Cluster collaboration (DEPRECATED)")
     async with EvoruleClient(BASE_URL) as client:
         s1 = await client.create_session()
         s2 = await client.create_session()
         tr.ok(f"create 2 sessions ({s1.session_id}, {s2.session_id})")
 
-        resp = await s1.join(target_id=s2.session_id, direction="bidirectional")
-        assert resp.get("success") is True or "message" in resp
-        tr.ok(f"join ({s1.session_id} <-> {s2.session_id})")
-
-        status = await s1.cluster_status()
-        keys = list(status.keys()) if isinstance(status, dict) else []
-        tr.ok(f"cluster_status (keys: {', '.join(keys)})")
-
-        resp2 = await s1.leave()
-        assert resp2.get("success") is True or "message" in resp2
-        tr.ok("leave")
+        # cluster 端点已被 evorule-server 移除，调用应返回 404
+        try:
+            await s1.join(target_id=s2.session_id, direction="bidirectional")
+            tr.fail("cluster join", "expected 404 (endpoint deprecated)")
+        except Exception:
+            tr.ok("cluster join (expected 404, endpoint deprecated)")
 
         await s1.close()
         await s2.close()

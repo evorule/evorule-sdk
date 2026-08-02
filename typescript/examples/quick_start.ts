@@ -85,16 +85,16 @@ async function main(): Promise<void> {
     // 8. 演示时间旅行：replay / rewind / diff
     console.log("--- 演示时间旅行：replay / rewind / diff ---");
     const replayData = await session.replay();
-    console.log(`replay: 共 ${replayData.facts.length} 个 Fact`);
+    console.log(`replay: 共 ${replayData.length} 个 Fact`);
 
     const rewindData = await session.rewind(1);
     console.log(
-      `rewind(1): version=${rewindData.version}, payload=${JSON.stringify(rewindData.payload)}`,
+      `rewind(1): actual_version=${rewindData.actual_version}, payload=${JSON.stringify(rewindData.payload)}`,
     );
 
     const diffData = await session.diff(1, 2);
     console.log(
-      `diff(1→2): version_a=${diffData.version_a}, version_b=${diffData.version_b}`,
+      `diff(1→2): from_version=${diffData.from_version}, to_version=${diffData.to_version}`,
     );
     console.log(
       `  added=${diffData.added.length} 项, removed=${diffData.removed.length} 项, changed=${diffData.changed.length} 项`,

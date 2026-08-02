@@ -61,20 +61,8 @@ Session session = client.createSession();
 
 - [文档总索引](DOCS_INDEX.md)
 - [版本策略](VERSION_STRATEGY.md)
-- [路线图](ROADMAP.md)
 - [贡献指南](CONTRIBUTING.md)
 - [安全政策](SECURITY.md)
-
-## 架构定位
-
-EvoRule 生态分为以下独立仓:
-
-| 仓 | 定位 | 与 SDK 的关系 |
-|---|---|---|
-| [evorule](https://gitee.com/evo-rule-lab/evorule) | 框架核心（Rust） | SDK 不依赖核心 crate |
-| [evorule-server](https://gitee.com/evo-rule-lab/evorule-server) | HTTP API 后端 | SDK 的运行期依赖 |
-| **evorule-sdk**（本仓） | 多语言客户端 SDK | - |
-| [evo-agent](https://gitee.com/evo-rule-lab/evo-agent) | AI agent 编排层 | SDK 的用户之一 |
 
 ## 协议
 

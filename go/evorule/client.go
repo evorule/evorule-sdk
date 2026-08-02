@@ -1,11 +1,16 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 package evorule
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -13,15 +18,6 @@ type Client struct {
 	baseURL    string
 	authToken  string
 	httpClient *http.Client
-}
-
-type Session struct {
-	ID         uint64 `json:"session_id"`
-	Phase      string `json:"phase"`
-	Version    uint64 `json:"version"`
-	MaxRounds  uint64 `json:"max_rounds"`
-	CreatedAt  string `json:"created_at"`
-	ExpiresAt  string `json:"expires_at"`
 }
 
 type Fact struct {
@@ -48,18 +44,31 @@ type SharedFact struct {
 	Version         uint64          `json:"version"`
 }
 
+// StateResponse 对应 GET /api/sessions/{id}/state 的响应
+//
+// server 返回 {payload, queue, version, reactor: {phase, causal_depth, ...}}
 type StateResponse struct {
-	Payload *json.RawMessage `json:"payload"`
+	Payload *json.RawMessage   `json:"payload"`
+	Queue   []json.RawMessage  `json:"queue"`
+	Version uint64             `json:"version"`
+	Reactor *json.RawMessage   `json:"reactor,omitempty"`
 }
 
-type ReplayResponse struct {
-	Facts []Fact `json:"facts"`
-}
+// ReplayResponse 对应 GET /api/sessions/{id}/replay 的响应
+//
+// server 直接返回 Fact 数组（非对象包裹），每项为 fact + version 字段
+type ReplayResponse = []Fact
 
+// RewindResponse 对应 GET /api/sessions/{id}/rewind?version=X 的响应
+//
+// server 返回 {session_id, target_version, payload, queue, actual_version}
+// actual_version 是实际回滚到的版本（可能因版本间隙与 target_version 不同）
 type RewindResponse struct {
-	Version uint64          `json:"version"`
-	Payload *json.RawMessage `json:"payload"`
-	Queue   []json.RawMessage `json:"queue"`
+	SessionID     uint64            `json:"session_id"`
+	TargetVersion uint64            `json:"target_version"`
+	ActualVersion uint64            `json:"actual_version"`
+	Payload       *json.RawMessage  `json:"payload"`
+	Queue         []json.RawMessage `json:"queue"`
 }
 
 type DiffEntry struct {
@@ -73,12 +82,18 @@ type DiffChangedEntry struct {
 	NewValue *json.RawMessage `json:"new_value"`
 }
 
+// DiffResponse 对应 GET /api/sessions/{id}/diff?a=X&b=Y 的响应
+//
+// server 返回 {session_id, from_version, to_version, added, removed, changed, unchanged, summary}
 type DiffResponse struct {
-	VersionA uint64             `json:"version_a"`
-	VersionB uint64             `json:"version_b"`
-	Added    []DiffEntry        `json:"added"`
-	Removed  []DiffEntry        `json:"removed"`
-	Changed  []DiffChangedEntry `json:"changed"`
+	SessionID   uint64             `json:"session_id"`
+	FromVersion uint64             `json:"from_version"`
+	ToVersion   uint64             `json:"to_version"`
+	Added       []DiffEntry        `json:"added"`
+	Removed     []DiffEntry        `json:"removed"`
+	Changed     []DiffChangedEntry `json:"changed"`
+	Unchanged   []DiffEntry        `json:"unchanged"`
+	Summary     *json.RawMessage   `json:"summary,omitempty"`
 }
 
 // P3 新增类型
@@ -168,39 +183,29 @@ func (c *Client) doDelete(urlStr string) (*http.Response, error) {
 	return c.do(req)
 }
 
-func (c *Client) CreateSession() (*Session, error) {
+// CreateSession 创建新会话（POST /api/sessions）
+//
+// server 返回 {"session_id": int, "message": "Session created"}
+func (c *Client) CreateSession() (uint64, error) {
 	resp, err := c.doPost(c.baseURL+"/api/sessions", nil)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to create session: %s", resp.Status)
+		return 0, fmt.Errorf("failed to create session: %s", resp.Status)
 	}
-	var session Session
-	if err := json.NewDecoder(resp.Body).Decode(&session); err != nil {
-		return nil, err
+	var result struct {
+		SessionID uint64 `json:"session_id"`
+		Message   string `json:"message"`
 	}
-	return &session, nil
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return 0, err
+	}
+	return result.SessionID, nil
 }
 
-func (c *Client) GetSession(id uint64) (*Session, error) {
-	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d", c.baseURL, id))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get session: %s", resp.Status)
-	}
-	var session Session
-	if err := json.NewDecoder(resp.Body).Decode(&session); err != nil {
-		return nil, err
-	}
-	return &session, nil
-}
-
-func (c *Client) ListSessions() ([]Session, error) {
+func (c *Client) ListSessions() ([]uint64, error) {
 	resp, err := c.doGet(c.baseURL + "/api/sessions")
 	if err != nil {
 		return nil, err
@@ -210,7 +215,7 @@ func (c *Client) ListSessions() ([]Session, error) {
 		return nil, fmt.Errorf("failed to list sessions: %s", resp.Status)
 	}
 	var result struct {
-		Sessions []Session `json:"sessions"`
+		Sessions []uint64 `json:"sessions"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
@@ -266,7 +271,7 @@ func (c *Client) GetState(id uint64) (*StateResponse, error) {
 	return &state, nil
 }
 
-func (c *Client) GetReplay(id uint64) (*ReplayResponse, error) {
+func (c *Client) GetReplay(id uint64) (ReplayResponse, error) {
 	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/replay", c.baseURL, id))
 	if err != nil {
 		return nil, err
@@ -279,11 +284,11 @@ func (c *Client) GetReplay(id uint64) (*ReplayResponse, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&replay); err != nil {
 		return nil, err
 	}
-	return &replay, nil
+	return replay, nil
 }
 
 func (c *Client) Rewind(id, version uint64) (*RewindResponse, error) {
-	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/rewind/%d", c.baseURL, id, version))
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/rewind?version=%d", c.baseURL, id, version))
 	if err != nil {
 		return nil, err
 	}
@@ -315,11 +320,11 @@ func (c *Client) Diff(id, from, to uint64) (*DiffResponse, error) {
 }
 
 func (c *Client) GetSharedFacts(prefix string) ([]SharedFact, error) {
-	url := c.baseURL + "/api/shared/facts"
+	u := c.baseURL + "/api/shared/facts"
 	if prefix != "" {
-		url += "?prefix=" + prefix
+		u += "?prefix=" + url.QueryEscape(prefix)
 	}
-	resp, err := c.doGet(url)
+	resp, err := c.doGet(u)
 	if err != nil {
 		return nil, err
 	}
@@ -490,13 +495,18 @@ func (c *Client) Readiness() (*ApiResponse, error) {
 	return &apiResp, nil
 }
 
-// ForkSession 从父会话的指定版本分叉新会话
-// POST /api/sessions/fork/{parent_id}?version=X
+// ForkSession 从父会话分叉新会话
+//
+// - version > 0: POST /api/sessions/fork/{parent_id}?version=X（指定版本分叉）
+// - version == 0: POST /api/sessions/from/{parent_id}（从最新版本分叉）
 func (c *Client) ForkSession(parentID, version uint64) (*ForkSessionResponse, error) {
-	resp, err := c.doPost(
-		fmt.Sprintf("%s/api/sessions/fork/%d?version=%d", c.baseURL, parentID, version),
-		nil,
-	)
+	var urlStr string
+	if version > 0 {
+		urlStr = fmt.Sprintf("%s/api/sessions/fork/%d?version=%d", c.baseURL, parentID, version)
+	} else {
+		urlStr = fmt.Sprintf("%s/api/sessions/from/%d", c.baseURL, parentID)
+	}
+	resp, err := c.doPost(urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -610,11 +620,11 @@ func (c *Client) SessionHistory(id uint64) ([]HistoryEntry, error) {
 // SessionFactsByPrefix 按路径前缀查询会话内 Facts
 // GET /api/sessions/{id}/facts?prefix=xxx
 func (c *Client) SessionFactsByPrefix(id uint64, prefix string) ([]SessionFactEntry, error) {
-	url := fmt.Sprintf("%s/api/sessions/%d/facts", c.baseURL, id)
+	u := fmt.Sprintf("%s/api/sessions/%d/facts", c.baseURL, id)
 	if prefix != "" {
-		url += "?prefix=" + prefix
+		u += "?prefix=" + url.QueryEscape(prefix)
 	}
-	resp, err := c.doGet(url)
+	resp, err := c.doGet(u)
 	if err != nil {
 		return nil, err
 	}
@@ -653,6 +663,9 @@ func (c *Client) GetUsedAtStartup(id uint64) ([]uint64, error) {
 // SessionJoin 加入集群协作
 // POST /api/sessions/{id}/join
 // direction: "atob" / "btoa" / "" (双向)
+//
+// ⚠️ DEPRECATED: evorule-server 已移除 cluster 端点（多 reactor 协作原语属应用层功能）。
+// 调用此方法将返回 404。保留代码供未来 cluster 模块重新启用时使用。
 func (c *Client) SessionJoin(id, targetID uint64, direction string) (*ApiResponse, error) {
 	body := map[string]interface{}{"target_id": targetID}
 	if direction != "" {
@@ -682,6 +695,8 @@ func (c *Client) SessionJoin(id, targetID uint64, direction string) (*ApiRespons
 
 // SessionLeave 离开所有集群协作
 // POST /api/sessions/{id}/leave
+//
+// ⚠️ DEPRECATED: evorule-server 已移除 cluster 端点。调用此方法将返回 404。
 func (c *Client) SessionLeave(id uint64) (*ApiResponse, error) {
 	resp, err := c.doPost(
 		fmt.Sprintf("%s/api/sessions/%d/leave", c.baseURL, id),
@@ -703,6 +718,8 @@ func (c *Client) SessionLeave(id uint64) (*ApiResponse, error) {
 
 // SessionClusterStatus 查询会话集群成员
 // GET /api/sessions/{id}/cluster
+//
+// ⚠️ DEPRECATED: evorule-server 已移除 cluster 端点。调用此方法将返回 404。
 func (c *Client) SessionClusterStatus(id uint64) ([]uint64, error) {
 	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/cluster", c.baseURL, id))
 	if err != nil {
@@ -720,4 +737,229 @@ func (c *Client) SessionClusterStatus(id uint64) ([]uint64, error) {
 		return nil, err
 	}
 	return result.ClusterMembers, nil
+}
+
+// ===== SSE 事件流 =====
+
+// SseEvent 表示一个 SSE 事件
+//
+// server 推送的事件格式为 data: {JSON}\n\n
+// Event 字段对应 SSE 的 event: 行（如有），Data 为 data: 行的原始 JSON
+type SseEvent struct {
+	Event string
+	Data  json.RawMessage
+}
+
+// Events 订阅会话的 SSE 事件流（GET /api/sessions/{id}/events）
+//
+// 返回一个只读 channel，持续产出 SseEvent。流在以下情况关闭：
+//   - ctx 被取消（调用方主动退出）
+//   - server 关闭连接（会话结束）
+//   - 读取发生错误
+//
+// 调用方应通过 for ev := range ch 迭代事件，并在适当时机取消 ctx。
+//
+// 使用示例：
+//
+//	ctx, cancel := context.WithCancel(context.Background())
+//	defer cancel()
+//	ch, err := client.Events(ctx, sessionID)
+//	if err != nil { ... }
+//	for ev := range ch {
+//	    fmt.Println(string(ev.Data))
+//	    if bytes.Contains(ev.Data, []byte(`"Stable"`)) {
+//	        cancel()
+//	    }
+//	}
+func (c *Client) Events(ctx context.Context, id uint64) (<-chan SseEvent, error) {
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		fmt.Sprintf("%s/api/sessions/%d/events", c.baseURL, id),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "text/event-stream")
+	if c.authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.authToken)
+	}
+
+	// SSE 是长连接，不能受 httpClient.Timeout（30s）限制。
+	// 复用原 Transport（连接池配置），但不设 Timeout，由 ctx 控制取消。
+	sseClient := &http.Client{
+		Transport: c.httpClient.Transport,
+	}
+	resp, err := sseClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, fmt.Errorf("failed to open SSE stream: %s", resp.Status)
+	}
+
+	ch := make(chan SseEvent)
+	go func() {
+		defer resp.Body.Close()
+		defer close(ch)
+
+		scanner := bufio.NewScanner(resp.Body)
+		// SSE 事件可能较大，增大 buffer
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+		var eventType string
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line == "" {
+				// 空行表示事件边界，重置 event 类型
+				eventType = ""
+				continue
+			}
+			if strings.HasPrefix(line, "event:") {
+				eventType = strings.TrimSpace(line[len("event:"):])
+			} else if strings.HasPrefix(line, "data: ") {
+				data := line[len("data: "):]
+				select {
+				case ch <- SseEvent{Event: eventType, Data: json.RawMessage(data)}:
+				case <-ctx.Done():
+					return
+				}
+			} else if strings.HasPrefix(line, "data:") {
+				data := strings.TrimSpace(line[len("data:"):])
+				select {
+				case ch <- SseEvent{Event: eventType, Data: json.RawMessage(data)}:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}()
+	return ch, nil
+}
+
+// ===== S4 端点补齐：会话运行时状态查询 =====
+
+// SnapshotResponse 对应 GET /api/sessions/{id}/snapshot 的响应
+type SnapshotResponse struct {
+	SessionID                    uint64 `json:"session_id"`
+	Finished                     bool   `json:"finished"`
+	Phase                        string `json:"phase"`
+	Version                      uint64 `json:"version"`
+	Steps                        uint64 `json:"steps"`
+	PendingIoCount               uint64 `json:"pending_io_count"`
+	StructuralInvariantViolations uint64 `json:"structural_invariant_violations"`
+}
+
+// Finished 查询会话是否已完成（GET /api/sessions/{id}/finished）
+func (c *Client) Finished(id uint64) (bool, error) {
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/finished", c.baseURL, id))
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("failed to check finished: %s", resp.Status)
+	}
+	var result struct {
+		Finished bool `json:"finished"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return false, err
+	}
+	return result.Finished, nil
+}
+
+// CausalDepth 查询因果链深度（GET /api/sessions/{id}/causal_depth）
+func (c *Client) CausalDepth(id uint64) (uint64, error) {
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/causal_depth", c.baseURL, id))
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("failed to get causal_depth: %s", resp.Status)
+	}
+	var result struct {
+		CausalDepth uint64 `json:"causal_depth"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return 0, err
+	}
+	return result.CausalDepth, nil
+}
+
+// Invariants 查询结构不变式违规计数（GET /api/sessions/{id}/invariants）
+func (c *Client) Invariants(id uint64) (uint64, error) {
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/invariants", c.baseURL, id))
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("failed to get invariants: %s", resp.Status)
+	}
+	var result struct {
+		Violations uint64 `json:"structural_invariant_violations"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return 0, err
+	}
+	return result.Violations, nil
+}
+
+// PendingIoCount 查询待处理 I/O 数量（GET /api/sessions/{id}/pending_io_count）
+func (c *Client) PendingIoCount(id uint64) (uint64, error) {
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/pending_io_count", c.baseURL, id))
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("failed to get pending_io_count: %s", resp.Status)
+	}
+	var result struct {
+		Count uint64 `json:"pending_io_count"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return 0, err
+	}
+	return result.Count, nil
+}
+
+// Step 查询当前执行步数（GET /api/sessions/{id}/step）
+func (c *Client) Step(id uint64) (uint64, error) {
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/step", c.baseURL, id))
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("failed to get step: %s", resp.Status)
+	}
+	var result struct {
+		CurrentStep uint64 `json:"current_step"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return 0, err
+	}
+	return result.CurrentStep, nil
+}
+
+// Snapshot 查询完整状态快照（GET /api/sessions/{id}/snapshot）
+func (c *Client) Snapshot(id uint64) (*SnapshotResponse, error) {
+	resp, err := c.doGet(fmt.Sprintf("%s/api/sessions/%d/snapshot", c.baseURL, id))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get snapshot: %s", resp.Status)
+	}
+	var snap SnapshotResponse
+	if err := json.NewDecoder(resp.Body).Decode(&snap); err != nil {
+		return nil, err
+	}
+	return &snap, nil
 }

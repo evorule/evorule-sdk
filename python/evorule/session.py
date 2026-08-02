@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """evorule SDK 会话管理
 
 每个 Session 对应服务端一个独立的长驻反应器实例，
@@ -9,6 +10,8 @@ from __future__ import annotations
 import json
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, AsyncIterator
+
+import httpx
 
 from .events import Event
 from .exceptions import CommandError, SessionClosedError, SessionNotFoundError
@@ -44,6 +47,11 @@ class Session:
         exc_tb: TracebackType | None,
     ) -> None:
         await self.close()
+
+    @property
+    def closed(self) -> bool:
+        """会话是否已关闭"""
+        return self._closed
 
     def _check_closed(self) -> None:
         if self._closed:
@@ -135,11 +143,11 @@ class Session:
         resp.raise_for_status()
         return resp.json()
 
-    async def replay(self) -> dict[str, Any]:
+    async def replay(self) -> list[dict[str, Any]]:
         """回放会话的完整 FactsLog（GET /api/sessions/{id}/replay）
 
         返回：
-            `{"facts": [...]}`，facts 为 Fact 列表
+            Fact 列表，每项为完整 fact 对象 + version 字段
         """
         self._check_closed()
         resp = await self._client._http.get(self._url("/replay"))
@@ -149,16 +157,18 @@ class Session:
         return resp.json()
 
     async def rewind(self, version: int) -> dict[str, Any]:
-        """回滚到指定版本（GET /api/sessions/{id}/rewind/{version}）
+        """回滚到指定版本（GET /api/sessions/{id}/rewind?version=X）
 
         参数：
             version: 目标版本号
 
         返回：
-            `{"version": int, "payload": {...}, "queue": [...]}`
+            `{"session_id": int, "target_version": int, "actual_version": int,
+              "payload": {...}, "queue": [...]}`
+            actual_version 是实际回滚到的版本（可能因版本间隙与 target_version 不同）
         """
         self._check_closed()
-        resp = await self._client._http.get(self._url(f"/rewind/{version}"))
+        resp = await self._client._http.get(self._url(f"/rewind?version={version}"))
         if resp.status_code == 404:
             raise SessionNotFoundError(f"Session {self.session_id} not found")
         resp.raise_for_status()
@@ -172,7 +182,9 @@ class Session:
             to_version: 目标版本（对应服务端参数 b）
 
         返回：
-            `{"version_a": int, "version_b": int, "added": [...], "removed": [...], "changed": [...]}`
+            `{"session_id": int, "from_version": int, "to_version": int,
+              "added": [...], "removed": [...], "changed": [...],
+              "unchanged": [...], "summary": {...}}`
         """
         self._check_closed()
         resp = await self._client._http.get(
@@ -234,11 +246,10 @@ class Session:
         resp.raise_for_status()
         return resp.json()
 
-    async def debug_phase(self) -> dict[str, Any]:
+    async def debug_phase(self) -> str:
         """查询反应器当前阶段（GET /api/sessions/{id}/debug/phase）
 
         返回：
-            `{"session_id": int, "phase": str}`
             phase 取值: Idle/Draining/Executing/AwaitingIo/Stable/Error
         """
         self._check_closed()
@@ -246,13 +257,12 @@ class Session:
         if resp.status_code == 404:
             raise SessionNotFoundError(f"Session {self.session_id} not found")
         resp.raise_for_status()
-        return resp.json()
+        return resp.json().get("phase", "Unknown")
 
-    async def debug_queue(self) -> dict[str, Any]:
+    async def debug_queue(self) -> list[dict[str, Any]]:
         """查询反应器待执行队列（GET /api/sessions/{id}/debug/queue）
 
         返回：
-            `{"session_id": int, "queue": [...]}`
             queue 为当前队列中的指令 JSON 列表
         """
         self._check_closed()
@@ -260,13 +270,12 @@ class Session:
         if resp.status_code == 404:
             raise SessionNotFoundError(f"Session {self.session_id} not found")
         resp.raise_for_status()
-        return resp.json()
+        return resp.json().get("queue", [])
 
-    async def debug_pending_io(self) -> dict[str, Any]:
+    async def debug_pending_io(self) -> list[dict[str, Any]]:
         """查询挂起的 I/O 请求（GET /api/sessions/{id}/debug/pending_io）
 
         返回：
-            `{"session_id": int, "pending_io": [...]}`
             pending_io 列表中每项包含 fact_id / io_type / duration_ms
         """
         self._check_closed()
@@ -274,7 +283,7 @@ class Session:
         if resp.status_code == 404:
             raise SessionNotFoundError(f"Session {self.session_id} not found")
         resp.raise_for_status()
-        return resp.json()
+        return resp.json().get("pending_io", [])
 
     async def audit(self, limit: int | None = None) -> dict[str, Any]:
         """查询会话审计报告（GET /api/sessions/{id}/audit）
@@ -312,16 +321,13 @@ class Session:
         """查询会话历史（GET /api/sessions/{id}/history）
 
         参数：
-            limit: 可选，返回条目数限制（客户端侧过滤）
+            limit: 可选，返回条目数限制（客户端侧截断）
 
         返回：
-            `[{"version": int, "type": str}, ...]`
+            `[{"version": int, "type": str, ...}, ...]`，每项为完整 fact + version
         """
         self._check_closed()
-        params: dict[str, Any] = {}
-        if limit is not None:
-            params["limit"] = limit
-        resp = await self._client._http.get(self._url("/history"), params=params if params else None)
+        resp = await self._client._http.get(self._url("/history"))
         if resp.status_code == 404:
             raise SessionNotFoundError(f"Session {self.session_id} not found")
         resp.raise_for_status()
@@ -362,6 +368,87 @@ class Session:
         resp.raise_for_status()
         return resp.json().get("fact_ids", [])
 
+    # ===== S4 端点补齐：会话运行时状态查询 =====
+
+    async def finished(self) -> bool:
+        """查询会话是否已完成（GET /api/sessions/{id}/finished）
+
+        返回：
+            True 如果会话已结束（反应器到达 Stable 或 Error 终态）
+        """
+        self._check_closed()
+        resp = await self._client._http.get(self._url("/finished"))
+        if resp.status_code == 404:
+            raise SessionNotFoundError(f"Session {self.session_id} not found")
+        resp.raise_for_status()
+        return resp.json().get("finished", False)
+
+    async def causal_depth(self) -> int:
+        """查询因果链深度（GET /api/sessions/{id}/causal_depth）
+
+        返回：
+            当前因果链深度
+        """
+        self._check_closed()
+        resp = await self._client._http.get(self._url("/causal_depth"))
+        if resp.status_code == 404:
+            raise SessionNotFoundError(f"Session {self.session_id} not found")
+        resp.raise_for_status()
+        return resp.json().get("causal_depth", 0)
+
+    async def invariants(self) -> int:
+        """查询结构不变式违规计数（GET /api/sessions/{id}/invariants）
+
+        返回：
+            结构不变式违规次数（0 表示无违规）
+        """
+        self._check_closed()
+        resp = await self._client._http.get(self._url("/invariants"))
+        if resp.status_code == 404:
+            raise SessionNotFoundError(f"Session {self.session_id} not found")
+        resp.raise_for_status()
+        return resp.json().get("structural_invariant_violations", 0)
+
+    async def pending_io_count(self) -> int:
+        """查询待处理 I/O 数量（GET /api/sessions/{id}/pending_io_count）
+
+        返回：
+            当前挂起的 I/O 请求数
+        """
+        self._check_closed()
+        resp = await self._client._http.get(self._url("/pending_io_count"))
+        if resp.status_code == 404:
+            raise SessionNotFoundError(f"Session {self.session_id} not found")
+        resp.raise_for_status()
+        return resp.json().get("pending_io_count", 0)
+
+    async def step(self) -> int:
+        """查询当前执行步数（GET /api/sessions/{id}/step）
+
+        返回：
+            当前执行步数
+        """
+        self._check_closed()
+        resp = await self._client._http.get(self._url("/step"))
+        if resp.status_code == 404:
+            raise SessionNotFoundError(f"Session {self.session_id} not found")
+        resp.raise_for_status()
+        return resp.json().get("current_step", 0)
+
+    async def snapshot(self) -> dict[str, Any]:
+        """查询完整状态快照（GET /api/sessions/{id}/snapshot）
+
+        返回：
+            `{"session_id", "finished", "phase", "version", "steps",
+              "pending_io_count", "structural_invariant_violations"}`
+        """
+        self._check_closed()
+        resp = await self._client._http.get(self._url("/snapshot"))
+        if resp.status_code == 404:
+            raise SessionNotFoundError(f"Session {self.session_id} not found")
+        resp.raise_for_status()
+        return resp.json()
+
     async def join(
         self,
         target_id: int | None = None,
@@ -369,6 +456,9 @@ class Session:
         target_session_id: int | None = None,
     ) -> dict[str, Any]:
         """加入集群协作（POST /api/sessions/{id}/join）
+
+        ⚠️ DEPRECATED: evorule-server 已移除 cluster 端点（多 reactor 协作原语属应用层功能）。
+        调用此方法将返回 404。保留代码供未来 cluster 模块重新启用时使用。
 
         参数：
             target_id: 目标会话 ID（推荐使用）
@@ -394,6 +484,8 @@ class Session:
     async def leave(self) -> dict[str, Any]:
         """离开所有集群协作（POST /api/sessions/{id}/leave）
 
+        ⚠️ DEPRECATED: evorule-server 已移除 cluster 端点。调用此方法将返回 404。
+
         返回：
             服务端响应
         """
@@ -406,6 +498,8 @@ class Session:
 
     async def cluster_status(self) -> dict[str, Any]:
         """查询会话集群成员（GET /api/sessions/{id}/cluster）
+
+        ⚠️ DEPRECATED: evorule-server 已移除 cluster 端点。调用此方法将返回 404。
 
         返回：
             `{"session_id": int, "cluster_members": [...]}`
@@ -452,12 +546,13 @@ class Session:
     async def close(self) -> None:
         """关闭会话（DELETE /api/sessions/{id}）
 
-        重复调用安全（幂等）。
+        重复调用安全（幂等）。关闭时的网络错误被忽略（会话可能已被 server 清理）。
         """
         if self._closed:
             return
         self._closed = True
         try:
             await self._client._http.delete(self._url())
-        except Exception:
+        except httpx.HTTPError:
+            # 网络错误忽略：会话可能已被 server 清理，或网络已断开
             pass

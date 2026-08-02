@@ -43,7 +43,7 @@ publishing {
             pom {
                 name.set("Evorule Java SDK")
                 description.set("Java SDK for Evorule HTTP API")
-                url.set("https://github.com/evorule/evorule")
+                url.set("https://gitee.com/evo-rule-lab/evorule-sdk")
                 licenses {
                     license {
                         name.set("GNU Affero General Public License v3.0")

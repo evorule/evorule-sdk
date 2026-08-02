@@ -19,9 +19,7 @@
 
 ---
 
-> 🇨🇳 **本仓库为 EvoRule 中文版,主仓库发布在 [Gitee](https://gitee.com/evorulelab/evorule)。**
-> TypeScript SDK 也在 Gitee 同步发布,package 名称为 `@evorule/sdk`。
-> npm 上发布的是镜像。
+> TypeScript SDK 在 Gitee 和 npm 同步发布,package 名称为 `@evorule/sdk`。
 
 ---
 
@@ -37,8 +35,7 @@
 - ✅ 想订阅 SSE 事件流做实时 UI / 监控 / 告警的开发者
 
 **不适合谁**:
-- ❌ 想直接操作 EvoRule 内核 — 用 Rust 直接调 `tier1-reactor` crate
-- ❌ 想跑 LLM Agent — 用 [`evo-agent`](https://gitee.com/evorulelab/evo-agent)
+- ❌ 想直接操作 EvoRule 内核 — 用 Rust 核心 crate
 
 ---
 
@@ -377,7 +374,6 @@ SDK 是 `evorule-server` HTTP API 的**薄封装**:
 - ✅ 异常有明确继承关系(便于 `try/catch`)
 
 **不包含**:
-- ❌ LLM 客户端(用 [`evo-agent`](https://gitee.com/evorulelab/evo-agent))
 - ❌ 业务规则 DSL(用 `core_eval.json` 加载到服务端)
 - ❌ 缓存 / 队列(交给服务端)
 
@@ -391,7 +387,7 @@ SDK 是 `evorule-server` HTTP API 的**薄封装**:
 | **依赖的 evorule-server 协议** | HTTP + JSON |
 | **`core_eval.json`**(宪法) | CC0 1.0 公共领域 |
 
-详见 [LICENSE](LICENSE) / [DUAL_LICENSE.md](DUAL_LICENSE.md) / [NOTICE.md](NOTICE.md)。
+详见 [LICENSE](../LICENSE) / [NOTICE.md](../NOTICE.md)。
 
 ---
 
@@ -399,7 +395,7 @@ SDK 是 `evorule-server` HTTP API 的**薄封装**:
 
 欢迎 PR / Issue / Discussion!
 
-请先读 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [CLA-individual.md](CLA-individual.md)。
+请先读 [CONTRIBUTING.md](../CONTRIBUTING.md)。
 
 **SDK 特定贡献指南**:
 - API 设计保持稳定,新增方法需 minor 版本
@@ -410,7 +406,7 @@ SDK 是 `evorule-server` HTTP API 的**薄封装**:
 
 ## 安全
 
-如发现安全漏洞,按 [SECURITY.md](SECURITY.md) 流程报告。
+如发现安全漏洞,按 [SECURITY.md](../SECURITY.md) 流程报告。
 
 **SDK 特有的安全考虑**:
 - `ClientOptions.token` — 不要硬编码,使用环境变量
@@ -420,17 +416,9 @@ SDK 是 `evorule-server` HTTP API 的**薄封装**:
 
 ---
 
-## 相关项目
-
-- **EvoRule 主项目**: https://gitee.com/evorulelab/evorule — 反应式执行引擎(本 SDK 与之通信)
-- **evo-agent**: https://gitee.com/evorulelab/evo-agent — LLM Agent 编排
-- **Python SDK**: https://gitee.com/evorulelab/evorule/tree/master/sdk/python — 同等 API 的 Python 实现
-
----
-
 ## 商标
 
-"EvoRule" 名称和徽标是 EvoRule Project 的商标。详见 [TRADEMARK.md](TRADEMARK.md)。
+"EvoRule" 名称和徽标是 EvoRule Project 的商标。详见 [TRADEMARK.md](../TRADEMARK.md)。
 
 ---
 

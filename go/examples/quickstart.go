@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 package main
 
 import (
@@ -14,12 +15,12 @@ func main() {
 	client := evorule.NewClientWithAuth("http://localhost:18080", "secret123")
 
 	fmt.Println("1. 创建会话...")
-	session, err := client.CreateSession()
+	sessionID, err := client.CreateSession()
 	if err != nil {
 		fmt.Printf("创建会话失败: %v\n", err)
 		return
 	}
-	fmt.Printf("会话创建成功: ID=%d, Phase=%s\n", session.ID, session.Phase)
+	fmt.Printf("会话创建成功: ID=%d\n", sessionID)
 
 	fmt.Println("\n2. 提交命令...")
 	instruction := map[string]interface{}{
@@ -29,14 +30,14 @@ func main() {
 			"delta": 1,
 		},
 	}
-	if err := client.SubmitCommand(session.ID, instruction); err != nil {
+	if err := client.SubmitCommand(sessionID, instruction); err != nil {
 		fmt.Printf("提交命令失败: %v\n", err)
 		return
 	}
 	fmt.Println("命令提交成功")
 
 	fmt.Println("\n3. 查询状态...")
-	state, err := client.GetState(session.ID)
+	state, err := client.GetState(sessionID)
 	if err != nil {
 		fmt.Printf("查询状态失败: %v\n", err)
 		return
@@ -44,23 +45,23 @@ func main() {
 	if state.Payload != nil {
 		var payload map[string]interface{}
 		if err := json.Unmarshal(*state.Payload, &payload); err == nil {
-			fmt.Printf("状态: %v\n", payload)
+			fmt.Printf("状态: %v (version=%d)\n", payload, state.Version)
 		}
 	}
 
 	fmt.Println("\n4. 获取执行历史...")
-	replay, err := client.GetReplay(session.ID)
+	replay, err := client.GetReplay(sessionID)
 	if err != nil {
 		fmt.Printf("获取历史失败: %v\n", err)
 		return
 	}
-	fmt.Printf("历史记录数: %d\n", len(replay.Facts))
-	for _, fact := range replay.Facts {
+	fmt.Printf("历史记录数: %d\n", len(replay))
+	for _, fact := range replay {
 		fmt.Printf("  - %s (F%d)\n", fact.Type, fact.ID)
 	}
 
 	fmt.Println("\n5. 关闭会话...")
-	if err := client.CloseSession(session.ID); err != nil {
+	if err := client.CloseSession(sessionID); err != nil {
 		fmt.Printf("关闭会话失败: %v\n", err)
 		return
 	}

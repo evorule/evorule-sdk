@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev/wip]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ===== 文档安全 + 版本一致性（各仓独立发布 · 强阻塞）=====
+  docs-check:
+    name: Doc safety + version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 检查 Python 版本
+        run: python3 --version
+
+      # 多语言版本一致性
+      - name: validate-version.ps1
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/validate-version.ps1
+
+      - name: validate-changelog.ps1
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/validate-changelog.ps1 -AllowUnreleased
+
+      - name: validate-license.ps1
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/validate-license.ps1
+
+      - name: validate-release.ps1（tag 格式校验，-SkipTagCheck 跳过 tag 存在性）
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/validate-release.ps1 -SkipTagCheck
+
+      # 文档安全 + 引用完整性 + 基调合规（强阻塞）
+      - name: check_doc_safety.py
+        run: python3 scripts/check_doc_safety.py --skip-git
+
+  # ===== Python SDK 测试 =====
+  python-test:
+    name: Python SDK tests
+    runs-on: ubuntu-latest
+    needs: docs-check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: |
+          cd python
+          pip install -e ".[dev]"
+      - name: Run tests
+        run: |
+          cd python
+          pytest
+
+  # ===== TypeScript SDK 测试 =====
+  typescript-test:
+    name: TypeScript SDK tests
+    runs-on: ubuntu-latest
+    needs: docs-check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+      - name: Install dependencies
+        run: |
+          cd typescript
+          npm install
+      - name: Typecheck
+        run: |
+          cd typescript
+          npm run typecheck
+      - name: Run tests
+        run: |
+          cd typescript
+          npm test
+
+  # ===== Go SDK 测试 =====
+  go-test:
+    name: Go SDK tests
+    runs-on: ubuntu-latest
+    needs: docs-check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+      - name: Run tests
+        run: |
+          cd go
+          go test ./...
+
+  # ===== Java SDK 测试 =====
+  java-test:
+    name: Java SDK tests
+    runs-on: ubuntu-latest
+    needs: docs-check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+      - name: Run tests
+        run: |
+          cd java
+          ./gradlew test

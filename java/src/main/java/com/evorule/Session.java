@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 package com.evorule;
 
 import com.evorule.exceptions.*;
@@ -55,7 +56,7 @@ public class Session implements AutoCloseable {
         return client.getReplay(sessionId);
     }
 
-    public SessionState rewind(long version) throws EvoruleException, IOException, InterruptedException {
+    public RewindResponse rewind(long version) throws EvoruleException, IOException, InterruptedException {
         checkClosed();
         return client.rewind(sessionId, version);
     }
@@ -100,12 +101,12 @@ public class Session implements AutoCloseable {
         return client.sessionAuditVerify(sessionId);
     }
 
-    public List<Fact> history() throws EvoruleException, IOException, InterruptedException {
+    public List<HistoryEntry> history() throws EvoruleException, IOException, InterruptedException {
         checkClosed();
         return client.sessionHistory(sessionId);
     }
 
-    public List<Fact> factsByPrefix(String prefix) throws EvoruleException, IOException, InterruptedException {
+    public List<SessionFactEntry> factsByPrefix(String prefix) throws EvoruleException, IOException, InterruptedException {
         checkClosed();
         return client.sessionFactsByPrefix(sessionId, prefix);
     }

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """evorule SDK SSE 事件类型定义
 
 对应服务端 `fact_to_sse_data()` 序列化的 7 种 Fact 变体：

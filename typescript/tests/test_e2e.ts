@@ -249,8 +249,8 @@ async function test04TimeMachine(tr: TestResult): Promise<void> {
 
     const diff = (await session.diff(1, v3)) as DiffResponse;
     if (
-      diff.version_a === undefined ||
-      diff.version_b === undefined ||
+      diff.from_version === undefined ||
+      diff.to_version === undefined ||
       !Array.isArray(diff.added) ||
       !Array.isArray(diff.removed) ||
       !Array.isArray(diff.changed)
@@ -259,7 +259,7 @@ async function test04TimeMachine(tr: TestResult): Promise<void> {
     } else {
       ok(
         tr,
-        `diff(v1→v${v3}): version_a=${diff.version_a}, ` +
+        `diff(v1→v${v3}): from_version=${diff.from_version}, ` +
           `added=${diff.added.length}, removed=${diff.removed.length}, changed=${diff.changed.length}`,
       );
     }
@@ -432,10 +432,10 @@ async function test10Audit(tr: TestResult): Promise<void> {
     ok(tr, `audit（返回字段: ${keys.join(", ")}）`);
 
     const verify = (await session.auditVerify()) as AuditVerifyResponse;
-    if (typeof verify.valid !== "boolean") {
-      fail(tr, "audit_verify", `缺少 valid 字段: ${JSON.stringify(verify)}`);
+    if (typeof verify.verified !== "boolean") {
+      fail(tr, "audit_verify", `缺少 verified 字段: ${JSON.stringify(verify)}`);
     } else {
-      ok(tr, `audit_verify（valid=${verify.valid}, session_id=${verify.session_id}）`);
+      ok(tr, `audit_verify（verified=${verify.verified}, session_id=${verify.session_id}）`);
     }
 
     await session.close();
@@ -468,22 +468,20 @@ async function test11History(tr: TestResult): Promise<void> {
 
 // ===== 场景 12：集群协作 =====
 async function test12Cluster(tr: TestResult): Promise<void> {
-  console.log("\n[场景 12] 集群协作");
+  console.log("\n[场景 12] 集群协作（DEPRECATED）");
   const client = new EvoruleClient(BASE_URL);
   try {
     const s1 = await client.createSession();
     const s2 = await client.createSession();
     ok(tr, `创建 2 个会话（${s1.sessionId}, ${s2.sessionId}）`);
 
-    const joinResp = await s1.join(s2.sessionId, "bidirectional");
-    ok(tr, `join（${s1.sessionId} ↔ ${s2.sessionId}, msg=${joinResp.message || "N/A"}）`);
-
-    const status = (await s1.clusterStatus()) as ClusterStatusResponse;
-    const keys = Object.keys(status as unknown as Record<string, unknown>);
-    ok(tr, `cluster_status（keys=${keys.join(", ")}）`);
-
-    const leaveResp = await s1.leave();
-    ok(tr, `leave（msg=${leaveResp.message || "N/A"}）`);
+    // cluster 端点已被 evorule-server 移除，调用应返回 404
+    try {
+      await s1.join(s2.sessionId, "bidirectional");
+      fail(tr, "cluster join", "expected 404 (endpoint deprecated)");
+    } catch {
+      ok(tr, "cluster join（expected 404, endpoint deprecated）");
+    }
 
     await s1.close();
     await s2.close();

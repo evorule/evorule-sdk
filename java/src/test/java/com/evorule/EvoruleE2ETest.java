@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 package com.evorule;
 
 import com.evorule.exceptions.*;
@@ -152,7 +153,7 @@ public class EvoruleE2ETest {
 
             long currentVersion = state.getVersion();
             if (currentVersion >= 1) {
-                SessionState rewound = session.rewind(0);
+                RewindResponse rewound = session.rewind(0);
                 assertNotNull(rewound);
                 pass("rewind(version=0)");
             } else {
@@ -166,9 +167,9 @@ public class EvoruleE2ETest {
             if (currentVersion >= 2) {
                 DiffResult diff = session.diff(0, 1);
                 assertNotNull(diff);
-                assertTrue(diff.getVersionA() >= 0);
-                assertTrue(diff.getVersionB() >= 0);
-                pass("diff(v0→v1): version_a=" + diff.getVersionA() +
+                assertTrue(diff.getFromVersion() >= 0);
+                assertTrue(diff.getToVersion() >= 0);
+                pass("diff(v0→v1): from_version=" + diff.getFromVersion() +
                         ", added=" + diff.getAdded().size() +
                         ", removed=" + diff.getRemoved().size() +
                         ", changed=" + diff.getChanged().size());
@@ -305,7 +306,7 @@ public class EvoruleE2ETest {
             setCmd.put("value", 0);
             session.command(setCmd);
 
-            List<Fact> history = session.history();
+            List<HistoryEntry> history = session.history();
             assertNotNull(history);
             assertInstanceOf(List.class, history);
             assertTrue(history.size() > 0);
@@ -317,25 +318,22 @@ public class EvoruleE2ETest {
     @Order(12)
     @DisplayName("场景 12: 集群协作")
     void testCluster() throws Exception {
-        System.out.println("\n[场景 12] 集群协作");
+        System.out.println("\n[场景 12] 集群协作（DEPRECATED）");
 
         try (Session s1 = client.createSession();
              Session s2 = client.createSession()) {
             pass("创建 2 个会话（" + s1.getSessionId() + ", " + s2.getSessionId() + "）");
 
-            JsonNode joinResult = s1.join(s2.getSessionId(), null);
-            assertNotNull(joinResult);
-            pass("join（" + s1.getSessionId() + " ↔ " + s2.getSessionId() + "）");
-
-            List<Long> members = s1.clusterStatus();
-            assertNotNull(members);
-            assertInstanceOf(List.class, members);
-            assertTrue(members.size() >= 1);
-            pass("cluster_status（members=" + members.size() + "）");
-
-            JsonNode leaveResult = s1.leave();
-            assertNotNull(leaveResult);
-            pass("leave（成功离开）");
+            // cluster 端点已被 evorule-server 移除，调用应失败（404 或连接重置）
+            // 注意：server 对未注册的 /join 路径可能直接重置连接（IOException），
+            // 也可能返回 404（EvoruleException），两种都算"deprecated 端点调用失败"。
+            try {
+                s1.join(s2.getSessionId(), null);
+                fail("cluster join: expected failure (endpoint deprecated)");
+            } catch (Exception e) {
+                pass("cluster join（expected failure, endpoint deprecated: "
+                        + e.getClass().getSimpleName() + "）");
+            }
         }
     }
 

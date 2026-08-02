@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * evorule SDK 会话管理
  *
@@ -9,15 +10,19 @@ import {
   ApiResponse,
   AuditVerifyResponse,
   AuthenticationError,
+  CausalDepthResponse,
   ClusterStatusResponse,
   CommandError,
   DebugPendingIoResponse,
   DebugPhaseResponse,
   DebugQueueResponse,
   DiffResponse,
+  FinishedResponse,
   HistoryEntry,
   Instruction,
+  InvariantsResponse,
   Json,
+  PendingIoCountResponse,
   PendingIoInfo,
   ReplayResponse,
   RewindResponse,
@@ -25,6 +30,8 @@ import {
   SessionFactEntry,
   SessionNotFoundError,
   SessionState,
+  SnapshotResponse,
+  StepResponse,
   SyncDirection,
   UsedAtStartupResponse,
 } from "./types.js";
@@ -138,9 +145,9 @@ export class Session {
     return (await resp.json()) as ReplayResponse;
   }
 
-  /** 回滚到指定版本（GET /api/sessions/{id}/rewind/{version}） */
+  /** 回滚到指定版本（GET /api/sessions/{id}/rewind?version=X） */
   async rewind(version: number): Promise<RewindResponse> {
-    const resp = await this._fetch(`/rewind/${version}`);
+    const resp = await this._fetch(`/rewind?version=${version}`);
     return (await resp.json()) as RewindResponse;
   }
 
@@ -246,8 +253,53 @@ export class Session {
     return (await resp.json()) as UsedAtStartupResponse;
   }
 
+  // ===== S4 端点补齐：会话运行时状态查询 =====
+
+  /** 查询会话是否已完成（GET /api/sessions/{id}/finished） */
+  async finished(): Promise<boolean> {
+    const resp = await this._fetch("/finished");
+    const data = (await resp.json()) as FinishedResponse;
+    return data.finished;
+  }
+
+  /** 查询因果链深度（GET /api/sessions/{id}/causal_depth） */
+  async causalDepth(): Promise<number> {
+    const resp = await this._fetch("/causal_depth");
+    const data = (await resp.json()) as CausalDepthResponse;
+    return data.causal_depth;
+  }
+
+  /** 查询结构不变式违规计数（GET /api/sessions/{id}/invariants） */
+  async invariants(): Promise<number> {
+    const resp = await this._fetch("/invariants");
+    const data = (await resp.json()) as InvariantsResponse;
+    return data.structural_invariant_violations;
+  }
+
+  /** 查询待处理 I/O 数量（GET /api/sessions/{id}/pending_io_count） */
+  async pendingIoCount(): Promise<number> {
+    const resp = await this._fetch("/pending_io_count");
+    const data = (await resp.json()) as PendingIoCountResponse;
+    return data.pending_io_count;
+  }
+
+  /** 查询当前执行步数（GET /api/sessions/{id}/step） */
+  async step(): Promise<number> {
+    const resp = await this._fetch("/step");
+    const data = (await resp.json()) as StepResponse;
+    return data.current_step;
+  }
+
+  /** 查询完整状态快照（GET /api/sessions/{id}/snapshot） */
+  async snapshot(): Promise<SnapshotResponse> {
+    const resp = await this._fetch("/snapshot");
+    return (await resp.json()) as SnapshotResponse;
+  }
+
   /**
    * 加入集群协作（POST /api/sessions/{id}/join）
+   *
+   * ⚠️ DEPRECATED: evorule-server 已移除 cluster 端点。调用此方法将返回 404。
    *
    * @param targetId 目标会话 ID
    * @param direction 同步方向："atob" / "btoa" / "bidirectional"（默认双向）
@@ -268,13 +320,19 @@ export class Session {
     return (await resp.json()) as ApiResponse;
   }
 
-  /** 离开所有集群协作（POST /api/sessions/{id}/leave） */
+  /** 离开所有集群协作（POST /api/sessions/{id}/leave）
+   *
+   * ⚠️ DEPRECATED: evorule-server 已移除 cluster 端点。调用此方法将返回 404。
+   */
   async leave(): Promise<ApiResponse> {
     const resp = await this._fetch("/leave", { method: "POST" });
     return (await resp.json()) as ApiResponse;
   }
 
-  /** 查询会话集群成员（GET /api/sessions/{id}/cluster） */
+  /** 查询会话集群成员（GET /api/sessions/{id}/cluster）
+   *
+   * ⚠️ DEPRECATED: evorule-server 已移除 cluster 端点。调用此方法将返回 404。
+   */
   async clusterStatus(): Promise<ClusterStatusResponse> {
     const resp = await this._fetch("/cluster");
     return (await resp.json()) as ClusterStatusResponse;
@@ -335,14 +393,27 @@ export class Session {
         buffer = parts.pop() ?? "";
 
         for (const rawEvent of parts) {
+          // SSE 规范：一个事件可包含 event:/data:/id: 多行，空行分隔
+          let eventType = "";
+          const dataLines: string[] = [];
           for (const line of rawEvent.split("\n")) {
-            if (line.startsWith("data: ")) {
-              try {
-                const json = JSON.parse(line.slice(6));
-                yield Event.fromJson(json);
-              } catch {
-                // JSON 解析失败，跳过
+            if (line.startsWith("event:")) {
+              eventType = line.slice(6).trim();
+            } else if (line.startsWith("data:")) {
+              // SSE 规范：data: 后有一个可选空格，需去掉
+              dataLines.push(line.slice(5).replace(/^ /, ""));
+            }
+          }
+          if (dataLines.length > 0) {
+            try {
+              const json = JSON.parse(dataLines.join("\n"));
+              // 如果 SSE event: 行提供了类型但 data JSON 中没有 type 字段，使用 event: 行的类型
+              if (eventType && !json.type) {
+                json.type = eventType;
               }
+              yield Event.fromJson(json);
+            } catch {
+              // JSON 解析失败，跳过
             }
           }
         }

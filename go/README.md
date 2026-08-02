@@ -86,7 +86,7 @@ func main() {
 | 方法 | 端点 |
 |---|---|
 | `GetReplay(id)` | `GET /api/sessions/{id}/replay` |
-| `Rewind(id, version)` | `GET /api/sessions/{id}/rewind/{version}` |
+| `Rewind(id, version)` | `GET /api/sessions/{id}/rewind?version=X` |
 | `Diff(id, from, to)` | `GET /api/sessions/{id}/diff?a={from}&b={to}` |
 | `SessionHistory(id)` | `GET /api/sessions/{id}/history` |
 
@@ -132,5 +132,3 @@ func main() {
 
 - ❌ 不支持 SSE 事件流（`/api/sessions/{id}/events`）— 计划在 v0.2.0 补齐
 - ❌ 无单元测试 — 计划在 v0.1.x 补齐
-
-详见 [ROADMAP.md](../ROADMAP.md)。

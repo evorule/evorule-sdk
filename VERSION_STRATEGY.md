@@ -6,7 +6,7 @@
 
 # EvoRule SDK 版本策略
 
-> **核心原则**:SDK 版本号独立于 evorule 核心仓和 evorule-server 仓,按自身节奏演进。
+> **核心原则**:SDK 版本号独立,按自身节奏演进。
 
 ---
 
@@ -67,6 +67,54 @@ MAJOR.MINOR.PATCH
 
 > 虽然各语言 SDK 可以独立演进,但应尽量保持功能对齐（同一 server API 端点在所有语言 SDK 中都应支持）。
 
+### 仓库结构：monorepo + 独立 tag
+
+**决策（2026-08-01）**：evorule-sdk 采用 **monorepo + 各语言独立 tag** 策略。
+
+所有语言的 SDK 源码统一存放在 `evorule-sdk` 仓库的子目录中，但发布时各语言使用独立的 git tag 和版本号。
+
+```
+evorule-sdk/                        # 一个 git 仓库（monorepo）
+├── go/          → tag: go-v0.1.0    → go get github.com/evorule/go-sdk@go-v0.1.0
+├── python/      → tag: python-v0.1.0 → pip install evorule==0.1.0
+├── typescript/  → tag: ts-v0.1.0    → npm publish evorule@0.1.0
+├── java/        → tag: java-v0.1.0  → maven publish com.evorule:evorule-client:0.1.0
+├── web/                           → 前端辅助工具
+├── DOCS_INDEX.md                   # 跨语言 API 端点覆盖矩阵（monorepo 独有优势）
+└── VERSION_STRATEGY.md             # 本文档
+```
+
+#### tag 命名规则
+
+| 语言 | tag 格式 | 示例 |
+|---|---|---|
+| Go | `go-v{MAJOR}.{MINOR}.{PATCH}` | `go-v0.1.0` |
+| Python | `python-v{MAJOR}.{MINOR}.{PATCH}` | `python-v0.1.0` |
+| TypeScript | `ts-v{MAJOR}.{MINOR}.{PATCH}` | `ts-v0.1.0` |
+| Java | `java-v{MAJOR}.{MINOR}.{PATCH}` | `java-v0.1.0` |
+
+> tag 前缀（`go-`/`python-`/`ts-`/`java-`）确保各语言版本号互不冲突，可独立演进。
+
+#### 为什么选择 monorepo
+
+| 理由 | 说明 |
+|---|---|
+| **跨语言一致性** | 一次 PR 同时修改所有 SDK 的字段名/端点变更（如 2026-08-01 审计修复了 10 个跨语言 BUG，monorepo 让这成为一次提交） |
+| **版本对齐可审计** | DOCS_INDEX.md 端点覆盖矩阵只有在 monorepo 中才能有效维护 |
+| **维护成本低** | 一套 CI/issue/PR 管理所有语言，不必维护 4-5 个仓库 |
+| **各语言版本仍独立** | 独立 tag 满足"各语言按自身节奏演进"的要求，Go 可发 `go-v0.2.0` 而 Python 仍是 `python-v0.1.0` |
+
+#### 何时考虑拆分到独立仓库
+
+出现以下任一信号时，应评估是否拆分：
+
+- [ ] 某语言的独立 contributor 超过 5 人，PR 噪音影响其他语言
+- [ ] 某语言的版本节奏明显与其他语言脱节（如 Go 已到 1.0，Python 还在 0.3）
+- [ ] 某语言需要独立的 security policy / release cycle
+- [ ] 各语言 SDK 代码量超过 monorepo 的可维护阈值
+
+> 拆分时应将 monorepo 子目录转为独立仓库，保留 git 历史（`git subtree split`）。
+
 ---
 
 ## 四、0.x.0 阶段规则
@@ -97,8 +145,11 @@ cd python
 # 2. 更新 CHANGELOG.md
 # 3. 构建
 python -m build
-# 4. 发布
+# 4. 发布到 PyPI
 twine upload dist/*
+# 5. 打 tag（monorepo 独立 tag 策略）
+git tag python-v0.1.0
+git push origin python-v0.1.0
 ```
 
 ### TypeScript SDK (npm)
@@ -109,8 +160,11 @@ cd typescript
 # 2. 更新 CHANGELOG.md
 # 3. 构建
 npm run build
-# 4. 发布
+# 4. 发布到 npm
 npm publish
+# 5. 打 tag（monorepo 独立 tag 策略）
+git tag ts-v0.1.0
+git push origin ts-v0.1.0
 ```
 
 ### Go SDK (Go module)
@@ -120,9 +174,9 @@ Go module 不需要显式发布,通过 git tag 管理:
 ```bash
 cd go
 # 1. 更新 CHANGELOG.md
-# 2. 打 tag
-git tag v0.1.0
-git push origin v0.1.0
+# 2. 打 tag（注意 go- 前缀，与 monorepo 独立 tag 策略一致）
+git tag go-v0.1.0
+git push origin go-v0.1.0
 ```
 
 ### Java SDK (Maven Central)
@@ -131,8 +185,11 @@ git push origin v0.1.0
 cd java
 # 1. 更新 build.gradle.kts 版本号
 # 2. 更新 CHANGELOG.md
-# 3. 发布
+# 3. 发布到 Maven Central
 ./gradlew publish
+# 4. 打 tag（monorepo 独立 tag 策略）
+git tag java-v0.1.0
+git push origin java-v0.1.0
 ```
 
 ---
@@ -145,7 +202,7 @@ SDK 不强制绑定 server 版本,但 CHANGELOG 中应记录"测试通过的最�
 ## [0.1.0] - 2026-08-01
 
 ### 测试通过的 evorule-server 版本
-- evorule-server 0.1.0（含 B1-B3 安全修复 + N1-N6 + S1-S4）
+- evorule-server 0.1.0
 ```
 
 用户可以参考此信息判断 SDK 与 server 的兼容性。

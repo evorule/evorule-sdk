@@ -14,10 +14,13 @@ __pycache__/
 node_modules/
 dist/
 .tsbuildinfo
+.build/
 
 # Java / Gradle
 .gradle/
 build/
+target/
+**/target/
 *.class
 bin/
 
@@ -26,8 +29,33 @@ bin/
 *.test
 *.out
 
-# IDE
+# === 环境变量(可能含密钥) ===
+.env
+.env.*
+!.env.example
+
+# === IDE ===
 .idea/
 .vscode/
+.trae/
 *.swp
 *.swo
+*.sln
+*.sw?
+
+# === 操作系统 ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === 临时文件 ===
+*.tmp
+*.bak
+*.log
+*~
+
+# === 内部审计/文档（绝不发布）===
+# wendang/ 存放内部审计报告、安全漏洞复盘等，含攻击面细节，
+# 推送公开仓前必须确保此处目录被忽略。
+wendang/
+wendang/**

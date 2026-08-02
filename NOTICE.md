@@ -19,12 +19,9 @@
 
 **本仓所有代码采用 AGPL-3.0-or-later 协议。** 详见 [LICENSE](LICENSE)。
 
-> SDK 是纯 AGPL，**不是双许可**。evorule 核心仓的双许可（AGPL + 商业）不适用于 SDK。
-
 ## 依赖说明
 
-SDK 不依赖 evorule 核心三 crate（evorule-tcb / evorule-reactor / evorule-governance），
-而是通过 HTTP API 与 [evorule-server](https://gitee.com/evo-rule-lab/evorule-server) 通信。
+SDK 通过 HTTP API 与 [evorule-server](https://gitee.com/evo-rule-lab/evorule-server) 通信。
 
 | 依赖 | 来源 | 说明 |
 |---|---|---|

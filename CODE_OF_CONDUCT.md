@@ -50,4 +50,4 @@ Code of Conduct documents are community norms; we release them under CC0 for max
 
 ---
 
-**本公约与 [evorule 主仓](https://gitee.com/evo-rule-lab/evorule)共用社区规范。**
+**本公约适用 evorule-sdk 仓社区规范。**
