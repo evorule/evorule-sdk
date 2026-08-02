@@ -477,4 +477,4 @@ SDK 是 `evorule-server` HTTP API 的**薄封装**:
 
 ---
 
-**`evorule`** Python SDK 是 EvoRule 生态的一部分。EvoRule 反应式执行引擎 → [主项目](https://gitee.com/evorulelab/evorule)。
+**`evorule`** Python SDK 是 EvoRule 生态的一部分。EvoRule 反应式执行引擎 → [主项目](https://gitee.com/evo-rule-lab/evorule)。

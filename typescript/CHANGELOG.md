@@ -181,7 +181,7 @@ npm update @evorule/sdk
 
 ## 历史背景
 
-`@evorule/sdk` 是 EvoRule 生态的官方 TypeScript 客户端。EvoRule 反应式执行引擎本身在 [主项目](https://gitee.com/evorulelab/evorule) 中,本 SDK 仅为 HTTP API 封装。
+`@evorule/sdk` 是 EvoRule 生态的官方 TypeScript 客户端。EvoRule 反应式执行引擎本身在 [主项目](https://gitee.com/evo-rule-lab/evorule) 中,本 SDK 仅为 HTTP API 封装。
 
 早期 Python 版本(参见 `evorule-core-backup` 仓库)对设计原则有深远影响:
 - 规则即数据(JSON)
@@ -194,7 +194,7 @@ npm update @evorule/sdk
 
 **作者**: EvoRule Project
 **邮箱**: evorulelab@gmail.com
-**Gitee**: https://gitee.com/evorulelab/evorule
+**Gitee**: https://gitee.com/evo-rule-lab/evorule
 **npm**: https://www.npmjs.com/package/@evorule/sdk
 
 ---

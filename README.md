@@ -42,7 +42,7 @@ const session = await client.createSession();
 ### Go
 
 ```go
-import "github.com/evorule/go-sdk/evorule"
+import "gitee.com/evo-rule-lab/evorule-sdk/go/evorule"
 
 client := evorule.NewClientWithAuth("http://localhost:18080", "secret123")
 session, err := client.CreateSession()

@@ -8,7 +8,7 @@ evorule-server HTTP API 的 Go 客户端 SDK。
 ## 安装
 
 ```bash
-go get github.com/evorule/go-sdk
+go get gitee.com/evo-rule-lab/evorule-sdk/go
 ```
 
 ## 快速开始
@@ -18,7 +18,7 @@ package main
 
 import (
     "fmt"
-    "github.com/evorule/go-sdk/evorule"
+    "gitee.com/evo-rule-lab/evorule-sdk/go/evorule"
 )
 
 func main() {
