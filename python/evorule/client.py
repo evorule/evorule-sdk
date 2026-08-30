@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: Apache-2.0
 """evorule SDK 主客户端
 
 通过 HTTP API 与 evorule-server 交互，提供会话管理、健康检查等接口。
@@ -10,7 +10,7 @@
     async def main():
         async with EvoruleClient("http://localhost:18080") as client:
             async with await client.create_session() as session:
-                await session.command({"type": "increment", "params": {"attr": "x", "delta": 5}})
+                await session.command({"type": "increment", "params": {"attr": "x", "operation": "add", "delta": 5}})
                 state = await session.state()
                 print(state)
 

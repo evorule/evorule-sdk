@@ -46,8 +46,8 @@ publishing {
                 url.set("https://gitee.com/evo-rule-lab/evorule-sdk")
                 licenses {
                     license {
-                        name.set("GNU Affero General Public License v3.0")
-                        url.set("https://www.gnu.org/licenses/agpl-3.0.html")
+                        name.set("Apache License, Version 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
                     }
                 }
             }

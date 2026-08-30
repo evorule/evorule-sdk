@@ -60,7 +60,9 @@ function sampleBundle(): Record<string, unknown> {
         rule_body: {
           kind: "rule",
           id: "rule.001",
-          transform: [{ type: "set", target: "x", value: 1 }],
+          transform: [
+            { type: "set", params: { attr: "x", operation: "set", value: 1 } },
+          ],
         },
       },
     ],

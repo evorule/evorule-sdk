@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 package com.evorule.examples;
 
 import com.evorule.EvoruleClient;
@@ -30,15 +30,19 @@ public class QuickStart {
             System.out.println("\n[2] 提交命令: set counter = 0");
             ObjectNode setCmd = mapper.createObjectNode();
             setCmd.put("type", "set");
-            setCmd.put("path", "counter");
-            setCmd.put("value", 0);
+            ObjectNode setParams = setCmd.putObject("params");
+            setParams.put("attr", "counter");
+            setParams.put("operation", "set");
+            setParams.put("value", 0);
             session.command(setCmd);
 
             System.out.println("    提交命令: increment counter + 5");
             ObjectNode incCmd = mapper.createObjectNode();
             incCmd.put("type", "increment");
-            incCmd.put("path", "counter");
-            incCmd.put("value", 5);
+            ObjectNode incParams = incCmd.putObject("params");
+            incParams.put("attr", "counter");
+            incParams.put("operation", "add");
+            incParams.put("delta", 5);
             session.command(incCmd);
 
             state = session.state();

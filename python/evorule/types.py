@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: Apache-2.0
 """evorule SDK 类型定义
 
 使用 TypedDict 和 TypeAlias 定义所有公开 API 的数据结构，

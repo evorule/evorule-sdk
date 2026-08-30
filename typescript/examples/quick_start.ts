@@ -46,7 +46,7 @@ async function main(): Promise<void> {
     console.log("--- 提交命令 1: increment x=5 ---");
     const result1 = await session.command({
       type: "increment",
-      params: { attr: "x", delta: 5 },
+      params: { attr: "x", operation: "add", delta: 5 },
     });
     console.log("响应:", result1, "\n");
     await sleep(300);
@@ -57,8 +57,8 @@ async function main(): Promise<void> {
       type: "sequence",
       params: {
         instructions: [
-          { type: "increment", params: { attr: "y", delta: 3 } },
-          { type: "increment", params: { attr: "x", delta: 10 } },
+          { type: "increment", params: { attr: "y", operation: "add", delta: 3 } },
+          { type: "increment", params: { attr: "x", operation: "add", delta: 10 } },
         ],
       },
     });

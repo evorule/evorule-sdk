@@ -14,7 +14,7 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/evorule.svg)](https://pypi.org/project/evorule/)
 [![Python Version](https://img.shields.io/pypi/pyversions/evorule.svg)](https://pypi.org/project/evorule/)
-[![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Downloads](https://img.shields.io/pypi/dm/evorule.svg)](https://pypi.org/project/evorule/)
 
 ---
@@ -74,11 +74,11 @@ async def main():
             # 3. 提交命令
             await session.command({
                 "type": "set",
-                "params": {"attr": "x", "value": 0},
+                "params": {"attr": "x", "operation": "set", "value": 0},
             })
             await session.command({
                 "type": "increment",
-                "params": {"attr": "x", "delta": 5},
+                "params": {"attr": "x", "operation": "add", "delta": 5},
             })
 
             # 4. 读状态
@@ -115,7 +115,7 @@ async def main():
     # 提交命令 → SSE 会推送 Command / PayloadUpdate / Stable 事件
     await session.command({
         "type": "set",
-        "params": {"attr": "y", "value": 42},
+        "params": {"attr": "y", "operation": "set", "value": 42},
     })
 
     await watch_task
@@ -178,7 +178,15 @@ async with EvoruleClient("http://localhost:18080") as client:
 | `shared_facts(prefix=None)` | 查询共享 Fact(可按路径前缀) | `Awaitable[list[SharedFact]]` |
 | `shared_fact_source(fact_id)` | 查询 Fact 来源 | `Awaitable[SharedFactSourceResponse]` |
 | `shared_fact_used_by(fact_id)` | 查询谁用了这个 Fact | `Awaitable[SharedFactUsedByResponse]` |
+| `import_bundle(bundle)` | 导入快照包并激活 | `Awaitable[dict]` |
+| `dry_run_import(bundle)` | 快照包导入预检(不落盘不热重载) | `Awaitable[dict]` |
+| `list_active_bundles()` | 查询当前激活快照包列表 | `Awaitable[dict]` |
+| `list_bundle_imports(limit=100)` | 查询导入溯源历史 | `Awaitable[dict]` |
 | `close()` | 释放 HTTP 连接 | `Awaitable[None]` |
+
+> **快照包(DatasetBundle)API**:bundle 为 DatasetBundle 快照包对象,原样透传,不本地校验。
+> 校验口径零复刻:六项硬校验 + 逐条 Schema 门禁由服务端执行(evorule-bundle SSOT),
+> SDK 仅做 HTTP 薄封装;400 时透传服务端 `error` 字段,不静默。
 
 ### `Session`
 
@@ -427,8 +435,8 @@ SDK 是 `evorule-server` HTTP API 的**薄封装**:
 
 | 资产 | 协议 |
 |---|---|
-| **SDK 代码** | AGPL-3.0-or-later |
-| **依赖的 evorule-server 协议** | HTTP + JSON |
+| **SDK 代码** | Apache-2.0 |
+| **依赖的 evorule-server 协议** | AGPL-3.0 + 商业双许可(HTTP + JSON API) |
 | **`core_eval.json`**(宪法) | CC0 1.0 公共领域 |
 
 详见 [LICENSE](../LICENSE) / [NOTICE.md](../NOTICE.md)。

@@ -1,20 +1,19 @@
 <!--
   Copyright 2026 EvoRule Project
 
-  This program is free software: you can redistribute it and/or modify
-  it under the terms of the GNU Affero General Public License as published by
-  the Free Software Foundation, either version 3 of the License, or
-  (at your option) any later version.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
 
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU Affero General Public License for more details.
+      http://www.apache.org/licenses/LICENSE-2.0
 
-  You should have received a copy of the GNU Affero General Public License
-  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
-  SPDX-License-Identifier: AGPL-3.0-or-later
+  SPDX-License-Identifier: Apache-2.0
 -->
 
 # @evorule/sdk 更新日志
@@ -34,7 +33,9 @@
 
 ---
 
-## [Unreleased]
+## [0.1.0] - 2026-08-01
+
+evorule TypeScript SDK 首次推送版本。
 
 ### 🆕 新增
 
@@ -47,21 +48,6 @@
 
 > 校验口径零复刻：六项硬校验 + 逐条 Schema 门禁由服务端执行（evorule-bundle SSOT），
 > SDK 仅做 HTTP 薄封装；400 时透传服务端 `error` 字段，不静默。
-
-### 计划
-
-- 🆕 配合 evorule-server 新增端点
-- 🆕 支持 WebSocket 替代 SSE(可选)
-- 🆕 自动重连 SSE(网络抖动场景)
-- ⚠️ 可能:从 CommonJS 转纯 ESM
-
----
-
-## [0.1.0] - 2026-08-01
-
-evorule TypeScript SDK 首次推送版本。
-
-### 🆕 新增
 
 #### 核心类
 - **`EvoruleClient`** — 主客户端
@@ -105,6 +91,13 @@ evorule TypeScript SDK 首次推送版本。
 - **Fork**:`ForkSessionResponse`
 - **配置**:`ClientOptions` / `EventData` / `EventType`
 
+### 计划（后续版本）
+
+- 🆕 配合 evorule-server 新增端点
+- 🆕 支持 WebSocket 替代 SSE(可选)
+- 🆕 自动重连 SSE(网络抖动场景)
+- ⚠️ 可能:从 CommonJS 转纯 ESM
+
 ### 🔄 变更
 
 - **依赖**:`tsx@4.23+` / `typescript@5.5+` / `@types/node@20+`
@@ -128,8 +121,8 @@ evorule TypeScript SDK 首次推送版本。
 
 ### 📜 协议
 
-- **SDK 代码**:AGPL-3.0-or-later
-- **依赖的 evorule-server 协议**:HTTP + JSON
+- **SDK 代码**:Apache-2.0
+- **依赖的 evorule-server 协议**:AGPL-3.0 + 商业双许可(HTTP + JSON API)
 - **`core_eval.json` 宪法**:CC0 1.0 公共领域
 
 ---

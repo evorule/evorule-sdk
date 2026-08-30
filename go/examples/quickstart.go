@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
@@ -26,8 +26,9 @@ func main() {
 	instruction := map[string]interface{}{
 		"type": "increment",
 		"params": map[string]interface{}{
-			"attr":  "x",
-			"delta": 1,
+			"attr":      "x",
+			"operation": "add",
+			"delta":     1,
 		},
 	}
 	if err := client.SubmitCommand(sessionID, instruction); err != nil {

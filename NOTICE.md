@@ -17,7 +17,11 @@
 
 ## 协议
 
-**本仓所有代码采用 AGPL-3.0-or-later 协议。** 详见 [LICENSE](LICENSE)。
+**本仓（EvoRule SDK）所有代码采用 Apache-2.0 协议。** 详见 [LICENSE](LICENSE)。
+
+> 许可分层说明:SDK 是 evorule-server HTTP API 的客户端薄封装,独立采用宽松的
+> Apache-2.0 许可,应用集成 SDK 不触发服务端协议义务;evorule-server 本体采用
+> AGPL-3.0 + 商业双许可(以 server 仓 LICENSE 为准)。
 
 ## 依赖说明
 

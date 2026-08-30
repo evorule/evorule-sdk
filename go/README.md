@@ -1,7 +1,7 @@
 # EvoRule Go SDK
 
 > **版本**: 0.1.0
-> **协议**: AGPL-3.0-or-later
+> **协议**: Apache-2.0
 
 evorule-server HTTP API 的 Go 客户端 SDK。
 
@@ -36,8 +36,9 @@ func main() {
     err = client.SubmitCommand(session.ID, map[string]interface{}{
         "type": "increment",
         "params": map[string]interface{}{
-            "attr":  "x",
-            "delta": 1,
+            "attr":      "x",
+            "operation": "add",
+            "delta":     1,
         },
     })
 

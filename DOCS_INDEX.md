@@ -1,7 +1,7 @@
 <!--
   Copyright 2026 EvoRule Project
 
-  SPDX-License-Identifier: AGPL-3.0-or-later
+  SPDX-License-Identifier: Apache-2.0
 -->
 
 # EvoRule SDK 文档总索引
@@ -25,7 +25,7 @@
 
 | 文档 | 用途 |
 |:---|:---|
-| [LICENSE](LICENSE) | AGPL-3.0-or-later 协议全文 |
+| [LICENSE](LICENSE) | Apache-2.0 协议全文 |
 | [NOTICE.md](NOTICE.md) | 版权声明 + 第三方依赖许可 |
 | [AUTHORS.md](AUTHORS.md) | 作者列表 |
 | [TRADEMARK.md](TRADEMARK.md) | 商标政策 |

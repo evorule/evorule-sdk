@@ -1,6 +1,6 @@
-﻿# =============================================================================
+# =============================================================================
 # validate-license.ps1 - EvoRule SDK license validation
-# Checks: LICENSE contains AGPL + source files have SPDX headers
+# Checks: LICENSE contains Apache-2.0 + source files have SPDX headers
 # =============================================================================
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
@@ -12,10 +12,10 @@ Write-Host "=== License Validation ===" -ForegroundColor Cyan
 $licensePath = Join-Path $repoRoot "LICENSE"
 if (Test-Path $licensePath) {
     $content = Get-Content $licensePath -Raw -Encoding UTF8
-    if ($content -match 'AGPL|Affero General Public License') {
-        Write-Host "[OK]   LICENSE contains AGPL" -ForegroundColor Green
+    if ($content -match 'Apache License|Apache-2\.0') {
+        Write-Host "[OK]   LICENSE contains Apache-2.0" -ForegroundColor Green
     } else {
-        Write-Host "[FAIL] LICENSE does not contain AGPL" -ForegroundColor Red
+        Write-Host "[FAIL] LICENSE does not contain Apache-2.0" -ForegroundColor Red
         $failed = $true
     }
 } else {

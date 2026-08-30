@@ -15,7 +15,7 @@
 
 ---
 
-## [Unreleased]
+## [0.1.0] - 2026-07-20
 
 ### 🆕 新增
 
@@ -29,10 +29,6 @@
 > 校验口径零复刻：六项硬校验 + 逐条 Schema 门禁由服务端执行（evorule-bundle SSOT），
 > SDK 仅做 HTTP 薄封装；400 时透传服务端 `error` 字段，不静默。
 > 单元测试：`BundleApiTest`（7 用例，JDK 内置 HttpServer 模拟服务端）。
-
-## [0.1.0] - 2026-07-20
-
-### 🆕 新增
 
 - **Gradle 构建系统** — 从 Maven 迁移到 Gradle Kotlin DSL，Java 17 目标
 - **完整的异常体系** — EvoruleException / AuthenticationException / SessionNotFoundError / SessionClosedError / CommandError

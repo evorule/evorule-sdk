@@ -45,7 +45,7 @@ async def main() -> None:
             print("--- 提交命令 1: increment x=5 ---")
             result = await session.command({
                 "type": "increment",
-                "params": {"attr": "x", "delta": 5},
+                "params": {"attr": "x", "operation": "add", "delta": 5},
             })
             print(f"响应: {result}\n")
             await asyncio.sleep(0.3)
@@ -56,8 +56,8 @@ async def main() -> None:
                 "type": "sequence",
                 "params": {
                     "instructions": [
-                        {"type": "increment", "params": {"attr": "y", "delta": 3}},
-                        {"type": "increment", "params": {"attr": "x", "delta": 10}},
+                        {"type": "increment", "params": {"attr": "y", "operation": "add", "delta": 3}},
+                        {"type": "increment", "params": {"attr": "x", "operation": "add", "delta": 10}},
                     ]
                 },
             })

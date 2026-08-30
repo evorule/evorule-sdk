@@ -91,7 +91,7 @@ class TestInstruction:
         """完整指令（type + params）"""
         instr: Instruction = {
             "type": "increment",
-            "params": {"attr": "x", "delta": 5},
+            "params": {"attr": "x", "operation": "add", "delta": 5},
         }
         assert instr["type"] == "increment"
         assert instr["params"]["attr"] == "x"

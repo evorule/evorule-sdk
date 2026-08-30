@@ -1,7 +1,7 @@
 <!--
   Copyright 2026 EvoRule Project
 
-  SPDX-License-Identifier: AGPL-3.0-or-later
+  SPDX-License-Identifier: Apache-2.0
 -->
 
 # EvoRule SDK 发布流程
@@ -63,7 +63,7 @@ pwsh scripts/validate-all.ps1 -PreRelease
 | --- | ------------------------- | ------------------------------------------------------------------------ |
 | 1   | `validate-version.ps1`    | Python/TypeScript/Java 版本号一致性 + L1 文档版本号字面量扫描           |
 | 2   | `validate-changelog.ps1`  | 根 CHANGELOG + 各语言 CHANGELOG 首段版本号 == 构建文件                  |
-| 3   | `validate-license.ps1`    | LICENSE 含 AGPL + 所有源文件 SPDX 头                                    |
+| 3   | `validate-license.ps1`    | LICENSE 含 Apache-2.0 + 所有源文件 SPDX 头                              |
 | 4   | `validate-release.ps1`    | tag 格式校验（`-SkipTagCheck` 跳过 tag 存在性，发布前用）              |
 | 5   | `check_doc_safety.py`     | 文档安全 + 交叉引用完整性 + 基调合规（7 类规则）                        |
 

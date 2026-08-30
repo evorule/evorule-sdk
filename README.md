@@ -1,7 +1,7 @@
 # EvoRule SDK
 
 > **版本**: v0.1.0
-> **协议**: AGPL-3.0-or-later
+> **协议**: Apache-2.0
 > **版本策略**: [独立版本号,不跟随其他仓](VERSION_STRATEGY.md)
 
 EvoRule 框架的多语言客户端 SDK 集合。
@@ -66,4 +66,4 @@ Session session = client.createSession();
 
 ## 协议
 
-AGPL-3.0-or-later,详见 [LICENSE](LICENSE)。
+Apache-2.0,详见 [LICENSE](LICENSE)。

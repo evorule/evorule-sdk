@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: Apache-2.0
 """evorule SDK 会话管理
 
 每个 Session 对应服务端一个独立的长驻反应器实例，
@@ -65,7 +65,7 @@ class Session:
         """提交命令到会话的反应器
 
         参数：
-            instruction: 指令 JSON，如 `{"type": "increment", "params": {"attr": "x", "delta": 5}}`
+            instruction: 指令 JSON，如 `{"type": "increment", "params": {"attr": "x", "operation": "add", "delta": 5}}`
 
         返回：
             服务端响应 `{"success": bool, "message": str, "fact_id": int | None}`

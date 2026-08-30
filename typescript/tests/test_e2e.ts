@@ -140,14 +140,14 @@ async function test02CommandAndSse(tr: TestResult): Promise<void> {
       await sleep(50);
     }
 
-    const setResp = await session.command({ type: "set", params: { attr: "x", value: 0 } });
+    const setResp = await session.command({ type: "set", params: { attr: "x", operation: "set", value: 0 } });
     ok(tr, `command（set x=0, fact_id=${setResp.fact_id}）`);
 
     await sleep(500);
 
     const incResp = await session.command({
       type: "increment",
-      params: { attr: "x", delta: 5 },
+      params: { attr: "x", operation: "add", delta: 5 },
     });
     ok(tr, `command（increment x +5, fact_id=${incResp.fact_id}）`);
 
@@ -183,7 +183,7 @@ async function test03PayloadUpdate(tr: TestResult): Promise<void> {
   const client = new EvoruleClient(BASE_URL);
   try {
     const session = await client.createSession();
-    await session.command({ type: "set", params: { attr: "status", value: "init" } });
+    await session.command({ type: "set", params: { attr: "status", operation: "set", value: "init" } });
 
     const resp1 = await session.updatePayload("status", "running");
     if (resp1.success !== true) {
@@ -226,9 +226,9 @@ async function test04TimeMachine(tr: TestResult): Promise<void> {
   const client = new EvoruleClient(BASE_URL);
   try {
     const session = await client.createSession();
-    await session.command({ type: "set", params: { attr: "counter", value: 0 } });
-    await session.command({ type: "increment", params: { attr: "counter", delta: 1 } });
-    await session.command({ type: "increment", params: { attr: "counter", delta: 1 } });
+    await session.command({ type: "set", params: { attr: "counter", operation: "set", value: 0 } });
+    await session.command({ type: "increment", params: { attr: "counter", operation: "add", delta: 1 } });
+    await session.command({ type: "increment", params: { attr: "counter", operation: "add", delta: 1 } });
     const stateV3 = await session.state();
     const v3 = stateV3.version;
     ok(tr, `执行 3 条命令（version=${v3}, counter=${stateV3.payload["counter"]}）`);
@@ -248,19 +248,19 @@ async function test04TimeMachine(tr: TestResult): Promise<void> {
     }
 
     const diff = (await session.diff(1, v3)) as DiffResponse;
-    if (
-      diff.from_version === undefined ||
-      diff.to_version === undefined ||
-      !Array.isArray(diff.added) ||
-      !Array.isArray(diff.removed) ||
-      !Array.isArray(diff.changed)
-    ) {
-      fail(tr, "diff", `缺少字段，返回: ${JSON.stringify(diff).slice(0, 100)}`);
+    // 服务端形态：{ from_version, to_version, items, removed, summary }
+    // added/changed 键可能缺省（空时省略），items 携带 [key, from, to] 变更三元组
+    if (diff.from_version === undefined || diff.to_version === undefined) {
+      fail(tr, "diff", `缺少版本字段，返回: ${JSON.stringify(diff).slice(0, 100)}`);
     } else {
+      const added = (diff as unknown as Record<string, unknown>).added as unknown[] | undefined;
+      const removed = (diff as unknown as Record<string, unknown>).removed as unknown[] | undefined;
+      const changed = ((diff as unknown as Record<string, unknown>).changed ??
+        (diff as unknown as Record<string, unknown>).items) as unknown[] | undefined;
       ok(
         tr,
         `diff(v1→v${v3}): from_version=${diff.from_version}, ` +
-          `added=${diff.added.length}, removed=${diff.removed.length}, changed=${diff.changed.length}`,
+          `added=${added?.length ?? 0}, removed=${removed?.length ?? 0}, changed=${changed?.length ?? 0}`,
       );
     }
 
@@ -276,7 +276,7 @@ async function test05DebugEndpoints(tr: TestResult): Promise<void> {
   const client = new EvoruleClient(BASE_URL);
   try {
     const session = await client.createSession();
-    await session.command({ type: "set", params: { attr: "debug_test", value: 1 } });
+    await session.command({ type: "set", params: { attr: "debug_test", operation: "set", value: 1 } });
 
     const phase = await session.debugPhase();
     if (typeof phase !== "string") {
@@ -311,7 +311,7 @@ async function test06Interrupt(tr: TestResult): Promise<void> {
   const client = new EvoruleClient(BASE_URL);
   try {
     const session = await client.createSession();
-    await session.command({ type: "set", params: { attr: "x", value: 0 } });
+    await session.command({ type: "set", params: { attr: "x", operation: "set", value: 0 } });
     ok(tr, "初始状态就绪");
 
     const resp = await session.interrupt();
@@ -346,7 +346,7 @@ async function test07SharedFacts(tr: TestResult): Promise<void> {
 
     const cmdResp = await session.command({
       type: "set",
-      params: { attr: "shared.knowledge.value", value: 42 },
+      params: { attr: "shared.knowledge.value", operation: "set", value: 42 },
     });
     ok(tr, `command（set shared.knowledge.value=42, fact_id=${cmdResp.fact_id}）`);
 
@@ -425,7 +425,7 @@ async function test10Audit(tr: TestResult): Promise<void> {
   const client = new EvoruleClient(BASE_URL);
   try {
     const session = await client.createSession();
-    await session.command({ type: "set", params: { attr: "audit_test", value: 1 } });
+    await session.command({ type: "set", params: { attr: "audit_test", operation: "set", value: 1 } });
 
     const audit = await session.audit();
     const keys = Object.keys(audit);
@@ -450,8 +450,8 @@ async function test11History(tr: TestResult): Promise<void> {
   const client = new EvoruleClient(BASE_URL);
   try {
     const session = await client.createSession();
-    await session.command({ type: "set", params: { attr: "hist", value: "a" } });
-    await session.command({ type: "set", params: { attr: "hist", value: "b" } });
+    await session.command({ type: "set", params: { attr: "hist", operation: "set", value: "a" } });
+    await session.command({ type: "set", params: { attr: "hist", operation: "set", value: "b" } });
 
     const history = (await session.history()) as HistoryEntry[];
     if (!Array.isArray(history)) {
@@ -496,7 +496,7 @@ async function test13Fork(tr: TestResult): Promise<void> {
   const client = new EvoruleClient(BASE_URL);
   try {
     const parent = await client.createSession();
-    await parent.command({ type: "set", params: { attr: "forked", value: true } });
+    await parent.command({ type: "set", params: { attr: "forked", operation: "set", value: true } });
     const parentState = await parent.state();
     ok(tr, `父会话就绪（version=${parentState.version}）`);
 

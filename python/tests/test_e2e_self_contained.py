@@ -147,7 +147,7 @@ async def test_02_command_and_sse(tr: TestResult) -> None:
     print("\n[Scenario 2] Command + SSE event stream")
     async with EvoruleClient(BASE_URL) as client:
         session = await client.create_session()
-        await session.command({"type": "set", "params": {"attr": "x", "value": 0}})
+        await session.command({"type": "set", "params": {"attr": "x", "operation": "set", "value": 0}})
         tr.ok("command (set x=0)")
 
         events: list[dict[str, Any]] = []
@@ -161,7 +161,7 @@ async def test_02_command_and_sse(tr: TestResult) -> None:
         task = asyncio.create_task(consume_events())
         await asyncio.sleep(1.0)  # 等待 SSE 连接建立
 
-        await session.command({"type": "increment", "params": {"attr": "x", "delta": 5}})
+        await session.command({"type": "increment", "params": {"attr": "x", "operation": "add", "delta": 5}})
         tr.ok("command (increment x +5)")
 
         await asyncio.wait_for(task, timeout=5.0)
@@ -189,7 +189,7 @@ async def test_03_payload_update(tr: TestResult) -> None:
     print("\n[Scenario 3] Payload update")
     async with EvoruleClient(BASE_URL) as client:
         session = await client.create_session()
-        await session.command({"type": "set", "params": {"attr": "status", "value": "init"}})
+        await session.command({"type": "set", "params": {"attr": "status", "operation": "set", "value": "init"}})
 
         resp = await session.update_payload("status", "running")
         if resp.get("success") is not True:
@@ -222,9 +222,9 @@ async def test_04_time_machine(tr: TestResult) -> None:
     print("\n[Scenario 4] Time machine")
     async with EvoruleClient(BASE_URL) as client:
         session = await client.create_session()
-        await session.command({"type": "set", "params": {"attr": "counter", "value": 0}})
-        await session.command({"type": "increment", "params": {"attr": "counter", "delta": 1}})
-        await session.command({"type": "increment", "params": {"attr": "counter", "delta": 1}})
+        await session.command({"type": "set", "params": {"attr": "counter", "operation": "set", "value": 0}})
+        await session.command({"type": "increment", "params": {"attr": "counter", "operation": "add", "delta": 1}})
+        await session.command({"type": "increment", "params": {"attr": "counter", "operation": "add", "delta": 1}})
         state_v3 = await session.state()
         v3 = state_v3["version"]
         tr.ok(f"3 commands executed (version={v3}, counter={state_v3['payload']['counter']})")
@@ -246,15 +246,16 @@ async def test_04_time_machine(tr: TestResult) -> None:
             tr.ok(f"rewind state check (version={state_after['version']})")
 
         diff = await session.diff(1, v3)
+        # 服务端形态：{from_version, to_version, items, removed, summary}，空列表整体省略
         if "from_version" not in diff or "to_version" not in diff:
             tr.fail("diff", f"missing version fields: {list(diff.keys())}")
-        elif "added" not in diff or "removed" not in diff or "changed" not in diff:
-            tr.fail("diff", f"missing diff fields: {list(diff.keys())}")
         else:
+            added = diff.get("added", [])
+            removed = diff.get("removed", [])
+            changed = diff.get("changed", diff.get("items", []))
             tr.ok(
                 f"diff(v1->v{v3}): from_version={diff['from_version']}, "
-                f"added={len(diff['added'])}, removed={len(diff['removed'])}, "
-                f"changed={len(diff['changed'])}"
+                f"added={len(added)}, removed={len(removed)}, changed={len(changed)}"
             )
 
         await session.close()
@@ -264,7 +265,7 @@ async def test_05_debug_endpoints(tr: TestResult) -> None:
     print("\n[Scenario 5] Debug endpoints")
     async with EvoruleClient(BASE_URL) as client:
         session = await client.create_session()
-        await session.command({"type": "set", "params": {"attr": "dbg", "value": 1}})
+        await session.command({"type": "set", "params": {"attr": "dbg", "operation": "set", "value": 1}})
 
         phase = await session.debug_phase()
         if not isinstance(phase, str):
@@ -291,7 +292,7 @@ async def test_06_interrupt(tr: TestResult) -> None:
     print("\n[Scenario 6] Execution interrupt")
     async with EvoruleClient(BASE_URL) as client:
         session = await client.create_session()
-        await session.command({"type": "set", "params": {"attr": "x", "value": 0}})
+        await session.command({"type": "set", "params": {"attr": "x", "operation": "set", "value": 0}})
         tr.ok("initial state ready")
 
         resp = await session.interrupt()
@@ -366,7 +367,7 @@ async def test_10_audit(tr: TestResult) -> None:
     print("\n[Scenario 10] Audit chain")
     async with EvoruleClient(BASE_URL) as client:
         session = await client.create_session()
-        await session.command({"type": "set", "params": {"attr": "audit_test", "value": 1}})
+        await session.command({"type": "set", "params": {"attr": "audit_test", "operation": "set", "value": 1}})
 
         audit = await session.audit()
         if isinstance(audit, list):
@@ -390,8 +391,8 @@ async def test_11_history(tr: TestResult) -> None:
     print("\n[Scenario 11] History")
     async with EvoruleClient(BASE_URL) as client:
         session = await client.create_session()
-        await session.command({"type": "set", "params": {"attr": "hist", "value": "a"}})
-        await session.command({"type": "set", "params": {"attr": "hist", "value": "b"}})
+        await session.command({"type": "set", "params": {"attr": "hist", "operation": "set", "value": "a"}})
+        await session.command({"type": "set", "params": {"attr": "hist", "operation": "set", "value": "b"}})
 
         history = await session.history()
         if isinstance(history, list):
@@ -425,7 +426,7 @@ async def test_13_fork(tr: TestResult) -> None:
     print("\n[Scenario 13] Session fork")
     async with EvoruleClient(BASE_URL) as client:
         parent = await client.create_session()
-        await parent.command({"type": "set", "params": {"attr": "forked", "value": True}})
+        await parent.command({"type": "set", "params": {"attr": "forked", "operation": "set", "value": True}})
         parent_state = await parent.state()
         tr.ok(f"parent ready (version={parent_state['version']})")
 

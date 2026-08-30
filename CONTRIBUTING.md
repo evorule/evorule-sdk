@@ -1,7 +1,7 @@
 <!--
   Copyright 2026 EvoRule Project
 
-  SPDX-License-Identifier: AGPL-3.0-or-later
+  SPDX-License-Identifier: Apache-2.0
 -->
 
 # 贡献指南
@@ -21,7 +21,7 @@ evorule-sdk/
 ├── go/              # Go SDK (net/http)
 ├── java/            # Java SDK (OkHttp + Gson)
 ├── web/             # Web 调试工具
-├── LICENSE          # AGPL-3.0-or-later
+├── LICENSE          # Apache-2.0
 ├── NOTICE.md        # 版权声明
 ├── CONTRIBUTING.md  # 本文件
 └── README.md        # 项目总览
@@ -85,7 +85,8 @@ SDK 采用**独立版本号**。详见 [VERSION_STRATEGY.md](VERSION_STRATEGY.md
 
 ## 协议
 
-所有贡献在 [AGPL-3.0-or-later](LICENSE) 下发布。提交 PR 即表示您同意在此协议下发布您的贡献。
+所有贡献在 [Apache-2.0](LICENSE) 下发布。提交 PR 即表示您同意在此协议下发布您的贡献,
+并授权项目维护者将您的贡献随同 SDK 一并纳入未来的商业许可安排(CLA 条款)。
 
 ---
 

@@ -71,7 +71,10 @@ def _sample_bundle() -> dict:
                     "kind": "rule",
                     "id": "rule.001",
                     "transform": [
-                        {"type": "set", "target": "x", "value": 1}
+                        {
+                            "type": "set",
+                            "params": {"attr": "x", "operation": "set", "value": 1},
+                        }
                     ],
                 },
             }

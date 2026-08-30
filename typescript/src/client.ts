@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 /**
  * evorule SDK 主客户端
  *
@@ -10,7 +10,7 @@
  *
  * const client = new EvoruleClient('http://localhost:18080');
  * const session = await client.createSession();
- * await session.command({ type: 'increment', params: { attr: 'x', delta: 5 } });
+ * await session.command({ type: 'increment', params: { attr: 'x', operation: 'add', delta: 5 } });
  * const state = await session.state();
  * console.log(state);
  * await session.close();

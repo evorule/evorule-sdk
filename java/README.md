@@ -64,14 +64,18 @@ public class QuickStart {
             // 提交命令
             ObjectNode setCmd = mapper.createObjectNode();
             setCmd.put("type", "set");
-            setCmd.put("path", "counter");
-            setCmd.put("value", 0);
+            ObjectNode setParams = setCmd.putObject("params");
+            setParams.put("attr", "counter");
+            setParams.put("operation", "set");
+            setParams.put("value", 0);
             session.command(setCmd);
 
             ObjectNode incCmd = mapper.createObjectNode();
             incCmd.put("type", "increment");
-            incCmd.put("path", "counter");
-            incCmd.put("value", 5);
+            ObjectNode incParams = incCmd.putObject("params");
+            incParams.put("attr", "counter");
+            incParams.put("operation", "add");
+            incParams.put("delta", 5);
             session.command(incCmd);
 
             // 获取状态
@@ -127,6 +131,14 @@ public class QuickStart {
 | `sessionLeave(id)` | 离开集群 |
 | `sessionClusterStatus(id)` | 集群状态 |
 | `streamEvents(sessionId)` | SSE 事件流 |
+| `importBundle(bundle)` | 导入快照包并激活 |
+| `dryRunImport(bundle)` | 快照包导入预检(不落盘不热重载) |
+| `listActiveBundles()` | 查询当前激活快照包列表 |
+| `listBundleImports(limit)` | 查询导入溯源历史 |
+
+> **快照包(DatasetBundle)API**:bundle 为 DatasetBundle 快照包(JsonNode),原样透传,不本地校验。
+> 校验口径零复刻:六项硬校验 + 逐条 Schema 门禁由服务端执行(evorule-bundle SSOT),
+> SDK 仅做 HTTP 薄封装;400 时透传服务端 `error` 字段,不静默。
 
 ### Session
 
@@ -162,4 +174,4 @@ public class QuickStart {
 
 ## 许可证
 
-AGPL-3.0，详见 [LICENSE](LICENSE)。
+Apache-2.0，详见 [LICENSE](LICENSE)。

@@ -14,7 +14,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@evorule/sdk.svg)](https://www.npmjs.com/package/@evorule/sdk)
 [![Node Version](https://img.shields.io/node/v/@evorule/sdk.svg)](https://www.npmjs.com/package/@evorule/sdk)
-[![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](../../LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5%2B-blue.svg)](https://www.typescriptlang.org/)
 
 ---
@@ -68,13 +68,13 @@ async function main() {
   // 2. 提交命令(类型安全)
   await session.command({
     type: "set",
-    params: { attr: "x", value: 0 },
+    params: { attr: "x", operation: "set", value: 0 },
   });
 
   // 3. 再提交一个命令
   await session.command({
     type: "increment",
-    params: { attr: "x", delta: 5 },
+    params: { attr: "x", operation: "add", delta: 5 },
   });
 
   // 4. 读状态
@@ -117,7 +117,7 @@ await new Promise((r) => setTimeout(r, 300));
 // 提交命令 → SSE 会推送 Command / PayloadUpdate / Stable 事件
 await session.command({
   type: "set",
-  params: { attr: "y", value: 42 },
+  params: { attr: "y", operation: "set", value: 42 },
 });
 
 await eventPromise;
@@ -165,7 +165,15 @@ const client = new EvoruleClient(baseUrl: string, options?: ClientOptions);
 | `sharedFacts(prefix?)` | 查询共享 Fact(可按路径前缀) | `Promise<SharedFact[]>` |
 | `sharedFactSource(factId)` | 查询 Fact 来源 | `Promise<SharedFactSourceResponse>` |
 | `sharedFactUsedBy(factId)` | 查询谁用了这个 Fact | `Promise<SharedFactUsedByResponse>` |
+| `importBundle(bundle)` | 导入快照包并激活 | `Promise<ImportBundleResponse>` |
+| `dryRunImport(bundle)` | 快照包导入预检(不落盘不热重载) | `Promise<DryRunImportResponse>` |
+| `listActiveBundles()` | 查询当前激活快照包列表 | `Promise<ActiveBundlesResponse>` |
+| `listBundleImports(limit?)` | 查询导入溯源历史 | `Promise<BundleImportsResponse>` |
 | `close()` | 释放资源 | `Promise<void>` |
+
+> **快照包(DatasetBundle)API**:bundle 为 DatasetBundle 快照包对象,原样透传,不本地校验。
+> 校验口径零复刻:六项硬校验 + 逐条 Schema 门禁由服务端执行(evorule-bundle SSOT),
+> SDK 仅做 HTTP 薄封装;400 时透传服务端 `error` 字段,不静默。
 
 ### `Session`
 
@@ -382,8 +390,8 @@ SDK 是 `evorule-server` HTTP API 的**薄封装**:
 
 | 资产 | 协议 |
 |---|---|
-| **SDK 代码** | AGPL-3.0-or-later |
-| **依赖的 evorule-server 协议** | HTTP + JSON |
+| **SDK 代码** | Apache-2.0 |
+| **依赖的 evorule-server 协议** | AGPL-3.0 + 商业双许可(HTTP + JSON API) |
 | **`core_eval.json`**(宪法) | CC0 1.0 公共领域 |
 
 详见 [LICENSE](../LICENSE) / [NOTICE.md](../NOTICE.md)。

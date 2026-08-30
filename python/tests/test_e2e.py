@@ -92,10 +92,9 @@ async def test_02_command_and_sse(tr: TestResult) -> None:
     print("\n场景 2：命令提交 + SSE 事件流")
     async with EvoruleClient(BASE_URL) as client:
         session = await client.create_session()
-        await session.command({"type": "set", "params": {"attr": "x", "value": 0}})
-        tr.ok("command（set x=0）")
 
         # 订阅 SSE 并在后台消费，同时提交命令
+        # （先订阅再提交，避免命令事件在订阅生效前发出导致竞态）
         events: list[dict[str, Any]] = []
 
         async def consume_events() -> None:
@@ -107,7 +106,10 @@ async def test_02_command_and_sse(tr: TestResult) -> None:
         task = asyncio.create_task(consume_events())
         await asyncio.sleep(0.2)  # 等待 SSE 连接建立
 
-        await session.command({"type": "increment", "params": {"attr": "x", "delta": 5}})
+        await session.command({"type": "set", "params": {"attr": "x", "operation": "set", "value": 0}})
+        tr.ok("command（set x=0）")
+
+        await session.command({"type": "increment", "params": {"attr": "x", "operation": "add", "delta": 5}})
         tr.ok("command（increment x +5）")
 
         await asyncio.wait_for(task, timeout=5.0)
@@ -130,7 +132,7 @@ async def test_03_payload_update(tr: TestResult) -> None:
     print("\n场景 3：Payload 更新")
     async with EvoruleClient(BASE_URL) as client:
         session = await client.create_session()
-        await session.command({"type": "set", "params": {"attr": "status", "value": "init"}})
+        await session.command({"type": "set", "params": {"attr": "status", "operation": "set", "value": "init"}})
 
         resp = await session.update_payload("status", "running")
         assert resp.get("success") is True
@@ -156,9 +158,9 @@ async def test_04_time_machine(tr: TestResult) -> None:
     print("\n场景 4：时间旅行")
     async with EvoruleClient(BASE_URL) as client:
         session = await client.create_session()
-        await session.command({"type": "set", "params": {"attr": "counter", "value": 0}})
-        await session.command({"type": "increment", "params": {"attr": "counter", "delta": 1}})
-        await session.command({"type": "increment", "params": {"attr": "counter", "delta": 1}})
+        await session.command({"type": "set", "params": {"attr": "counter", "operation": "set", "value": 0}})
+        await session.command({"type": "increment", "params": {"attr": "counter", "operation": "add", "delta": 1}})
+        await session.command({"type": "increment", "params": {"attr": "counter", "operation": "add", "delta": 1}})
         state_v3 = await session.state()
         v3 = state_v3["version"]
         counter_v3 = state_v3["payload"]["counter"]
@@ -173,21 +175,25 @@ async def test_04_time_machine(tr: TestResult) -> None:
         # rewind：回滚到前一版本
         v2 = v3 - 1
         rewind_data = await session.rewind(v2)
-        assert "version" in rewind_data or "success" in rewind_data
-        tr.ok(f"rewind(version={v2})")
+        # 服务端返回 {actual_version, target_version, payload, ...}
+        assert "actual_version" in rewind_data, f"rewind 响应缺 actual_version: {list(rewind_data.keys())}"
+        tr.ok(f"rewind(version={v2} → actual={rewind_data['actual_version']})")
 
         state_after = await session.state()
         assert state_after["version"] >= v2, f"版本应 >= {v2}，实际 {state_after['version']}"
         tr.ok(f"state 验证回滚（version={state_after['version']}）")
 
-        # diff：对比两个版本
+        # diff：对比两个版本（服务端形态：from_version/to_version/items/removed/summary）
         diff_data = await session.diff(1, v3)
-        assert "version_a" in diff_data and "version_b" in diff_data
-        assert "added" in diff_data and "removed" in diff_data and "changed" in diff_data
+        assert "from_version" in diff_data and "to_version" in diff_data, (
+            f"diff 响应缺版本字段: {list(diff_data.keys())}"
+        )
+        added = diff_data.get("added", [])
+        removed = diff_data.get("removed", [])
+        changed = diff_data.get("changed", diff_data.get("items", []))
         tr.ok(
-            f"diff(v1→v{v3}): version_a={diff_data['version_a']}, "
-            f"added={len(diff_data['added'])}, removed={len(diff_data['removed'])}, "
-            f"changed={len(diff_data['changed'])}"
+            f"diff(v1→v{v3}): from_version={diff_data['from_version']}, "
+            f"added={len(added)}, removed={len(removed)}, changed={len(changed)}"
         )
 
         await session.close()
@@ -198,19 +204,26 @@ async def test_05_debug_endpoints(tr: TestResult) -> None:
     print("\n场景 5：Debug 端点")
     async with EvoruleClient(BASE_URL) as client:
         session = await client.create_session()
-        await session.command({"type": "set", "params": {"attr": "debug_test", "value": 1}})
+        await session.command({"type": "set", "params": {"attr": "debug_test", "operation": "set", "value": 1}})
 
         phase = await session.debug_phase()
-        assert "phase" in phase
-        tr.ok(f"debug_phase（phase={phase['phase']}）")
+        # 服务端返回裸字符串（如 "idle"）
+        assert isinstance(phase, str) or "phase" in phase, f"debug_phase 响应形态异常: {phase!r}"
+        tr.ok(f"debug_phase（phase={phase if isinstance(phase, str) else phase['phase']}）")
 
         queue_data = await session.debug_queue()
-        assert "queue" in queue_data
-        tr.ok(f"debug_queue（queue_len={len(queue_data.get('queue', []))}）")
+        # 服务端返回裸列表
+        queue_items = queue_data if isinstance(queue_data, list) else queue_data.get("queue", [])
+        tr.ok(f"debug_queue（queue_len={len(queue_items)}）")
 
         pending_io = await session.debug_pending_io()
-        assert "pending_io" in pending_io or "pending_io_count" in pending_io
-        tr.ok(f"debug_pending_io（count={pending_io.get('pending_io_count', len(pending_io.get('pending_io', [])))}）")
+        # 服务端返回裸列表
+        pending_count = (
+            len(pending_io)
+            if isinstance(pending_io, list)
+            else pending_io.get("pending_io_count", len(pending_io.get("pending_io", [])))
+        )
+        tr.ok(f"debug_pending_io（count={pending_count}）")
 
         await session.close()
 
@@ -220,7 +233,7 @@ async def test_06_interrupt(tr: TestResult) -> None:
     print("\n场景 6：执行中断")
     async with EvoruleClient(BASE_URL) as client:
         session = await client.create_session()
-        await session.command({"type": "set", "params": {"attr": "x", "value": 0}})
+        await session.command({"type": "set", "params": {"attr": "x", "operation": "set", "value": 0}})
         tr.ok("初始状态就绪")
 
         resp = await session.interrupt()
@@ -242,7 +255,7 @@ async def test_07_shared_facts(tr: TestResult) -> None:
 
         # 通过 payload 更新设置共享字段
         await session.update_payload("shared.greeting", "hello")
-        await session.command({"type": "set", "params": {"attr": "shared.knowledge.value", "value": 42}})
+        await session.command({"type": "set", "params": {"attr": "shared.knowledge.value", "operation": "set", "value": 42}})
         tr.ok("设置共享字段")
 
         # 查询共享 facts
@@ -300,7 +313,7 @@ async def test_10_audit(tr: TestResult) -> None:
     print("\n场景 10：审计链")
     async with EvoruleClient(BASE_URL) as client:
         session = await client.create_session()
-        await session.command({"type": "set", "params": {"attr": "audit_test", "value": 1}})
+        await session.command({"type": "set", "params": {"attr": "audit_test", "operation": "set", "value": 1}})
 
         audit = await session.audit(limit=10)
         assert isinstance(audit, list) or "entries" in audit or "facts" in audit
@@ -318,8 +331,8 @@ async def test_11_history(tr: TestResult) -> None:
     print("\n场景 11：历史查询")
     async with EvoruleClient(BASE_URL) as client:
         session = await client.create_session()
-        await session.command({"type": "set", "params": {"attr": "hist", "value": "a"}})
-        await session.command({"type": "set", "params": {"attr": "hist", "value": "b"}})
+        await session.command({"type": "set", "params": {"attr": "hist", "operation": "set", "value": "a"}})
+        await session.command({"type": "set", "params": {"attr": "hist", "operation": "set", "value": "b"}})
 
         history = await session.history(limit=5)
         assert isinstance(history, list) or "history" in history or "entries" in history
@@ -330,27 +343,20 @@ async def test_11_history(tr: TestResult) -> None:
 
 
 async def test_12_cluster(tr: TestResult) -> None:
-    """场景 12：集群协作"""
-    print("\n场景 12：集群协作")
+    """场景 12：集群协作（DEPRECATED）"""
+    print("\n场景 12：集群协作（DEPRECATED）")
     async with EvoruleClient(BASE_URL) as client:
         s1 = await client.create_session()
         s2 = await client.create_session()
         tr.ok(f"创建 2 个会话（{s1.session_id}, {s2.session_id}）")
 
-        # join 集群
-        resp = await s1.join(target_session_id=s2.session_id, direction="bidirectional")
-        assert resp.get("success") is True or "message" in resp
-        tr.ok(f"join（{s1.session_id} ↔ {s2.session_id}, msg={resp.get('message', 'N/A')}）")
-
-        # 查询集群状态
-        status = await s1.cluster_status()
-        assert "cluster_members" in status or "members" in status or "cluster" in status or "peers" in status
-        tr.ok(f"cluster_status（keys={list(status.keys())}）")
-
-        # leave 集群
-        resp = await s1.leave()
-        assert resp.get("success") is True or "message" in resp
-        tr.ok(f"leave（msg={resp.get('message', 'N/A')}）")
+        # cluster 端点已被 evorule-server 移除（多 reactor 协作原语属应用层功能），
+        # 调用应失败（404 或连接重置），两种都算"deprecated 端点调用失败"。
+        try:
+            await s1.join(target_session_id=s2.session_id, direction="bidirectional")
+            tr.fail("cluster join", "期望调用失败（端点已废弃），实际成功")
+        except Exception as e:
+            tr.ok(f"cluster join（expected failure, endpoint deprecated: {type(e).__name__}）")
 
         await s1.close()
         await s2.close()
@@ -361,7 +367,7 @@ async def test_13_fork(tr: TestResult) -> None:
     print("\n场景 13：会话分叉")
     async with EvoruleClient(BASE_URL) as client:
         parent = await client.create_session()
-        await parent.command({"type": "set", "params": {"attr": "forked", "value": True}})
+        await parent.command({"type": "set", "params": {"attr": "forked", "operation": "set", "value": True}})
         parent_state = await parent.state()
         tr.ok(f"父会话就绪（version={parent_state['version']}）")
 

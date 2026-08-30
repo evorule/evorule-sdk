@@ -1,7 +1,7 @@
 <!--
   Copyright 2026 EvoRule Project
 
-  SPDX-License-Identifier: AGPL-3.0-or-later
+  SPDX-License-Identifier: Apache-2.0
 -->
 
 # EvoRule 商标政策
@@ -12,7 +12,7 @@
 
 **"EvoRule"** 名称、徽标和品牌资产是 EvoRule Project 的**商标**。
 
-虽然 EvoRule SDK 代码在 **AGPL-3.0-or-later 许可证**下开源,但**商标被保留**以确保质量一致并防止用户混淆。
+虽然 EvoRule SDK 代码在 **Apache-2.0 许可证**下开源,但**商标被保留**以确保质量一致并防止用户混淆。
 
 ---
 

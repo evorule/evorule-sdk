@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 package com.evorule;
 
 import com.evorule.exceptions.*;
@@ -77,15 +77,19 @@ public class EvoruleE2ETest {
         try (Session session = client.createSession()) {
             ObjectNode setCmd = mapper.createObjectNode();
             setCmd.put("type", "set");
-            setCmd.put("path", "x");
-            setCmd.put("value", 0);
+            ObjectNode setParams = setCmd.putObject("params");
+            setParams.put("attr", "x");
+            setParams.put("operation", "set");
+            setParams.put("value", 0);
             assertDoesNotThrow(() -> session.command(setCmd));
             pass("command（set x=0）");
 
             ObjectNode incCmd = mapper.createObjectNode();
             incCmd.put("type", "increment");
-            incCmd.put("path", "x");
-            incCmd.put("value", 5);
+            ObjectNode incParams = incCmd.putObject("params");
+            incParams.put("attr", "x");
+            incParams.put("operation", "add");
+            incParams.put("delta", 5);
             assertDoesNotThrow(() -> session.command(incCmd));
             pass("command（increment x +5）");
 
@@ -129,14 +133,18 @@ public class EvoruleE2ETest {
         try (Session session = client.createSession()) {
             ObjectNode setCmd = mapper.createObjectNode();
             setCmd.put("type", "set");
-            setCmd.put("path", "counter");
-            setCmd.put("value", 0);
+            ObjectNode setParams = setCmd.putObject("params");
+            setParams.put("attr", "counter");
+            setParams.put("operation", "set");
+            setParams.put("value", 0);
             session.command(setCmd);
 
             ObjectNode incCmd = mapper.createObjectNode();
             incCmd.put("type", "increment");
-            incCmd.put("path", "counter");
-            incCmd.put("value", 1);
+            ObjectNode incParams = incCmd.putObject("params");
+            incParams.put("attr", "counter");
+            incParams.put("operation", "add");
+            incParams.put("delta", 1);
             session.command(incCmd);
             session.command(incCmd);
 
@@ -280,8 +288,10 @@ public class EvoruleE2ETest {
         try (Session session = client.createSession()) {
             ObjectNode setCmd = mapper.createObjectNode();
             setCmd.put("type", "set");
-            setCmd.put("path", "x");
-            setCmd.put("value", 0);
+            ObjectNode setParams = setCmd.putObject("params");
+            setParams.put("attr", "x");
+            setParams.put("operation", "set");
+            setParams.put("value", 0);
             session.command(setCmd);
 
             JsonNode audit = session.audit();
@@ -302,8 +312,10 @@ public class EvoruleE2ETest {
         try (Session session = client.createSession()) {
             ObjectNode setCmd = mapper.createObjectNode();
             setCmd.put("type", "set");
-            setCmd.put("path", "x");
-            setCmd.put("value", 0);
+            ObjectNode setParams = setCmd.putObject("params");
+            setParams.put("attr", "x");
+            setParams.put("operation", "set");
+            setParams.put("value", 0);
             session.command(setCmd);
 
             List<HistoryEntry> history = session.history();
@@ -346,8 +358,10 @@ public class EvoruleE2ETest {
         try (Session parent = client.createSession()) {
             ObjectNode setCmd = mapper.createObjectNode();
             setCmd.put("type", "set");
-            setCmd.put("path", "forked");
-            setCmd.put("value", true);
+            ObjectNode setParams = setCmd.putObject("params");
+            setParams.put("attr", "forked");
+            setParams.put("operation", "set");
+            setParams.put("value", true);
             parent.command(setCmd);
 
             SessionState state = parent.state();

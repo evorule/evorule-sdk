@@ -38,7 +38,7 @@ def make_increment_instruction(attr: str, delta: int) -> dict[str, Any]:
     """构造 increment 指令"""
     return {
         "type": "increment",
-        "params": {"attr": attr, "delta": delta},
+        "params": {"attr": attr, "operation": "add", "delta": delta},
     }
 
 
