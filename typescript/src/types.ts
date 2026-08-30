@@ -275,6 +275,77 @@ export interface ClientOptions {
   timeout?: number;
 }
 
+// ===== 快照包（DatasetBundle）API =====
+// 校验口径零复刻：六项校验链由服务端执行（evorule-bundle SSOT），
+// SDK 侧类型仅描述 HTTP 响应形状，不做本地校验。
+
+/** 导入快照包请求体（`{"bundle": DatasetBundle}` 包裹形态） */
+export interface ImportBundleRequest {
+  bundle: Record<string, unknown>;
+}
+
+/** POST /api/bundles/import 成功响应（导入即激活） */
+export interface ImportBundleResponse {
+  imported: boolean;
+  bundle_id: string;
+  dataset_id: string;
+  activated_version: string;
+  entry_count: number;
+  missing_services: string[];
+}
+
+/** POST /api/bundles/import/dry-run 成功响应（只校验，不落盘不重载） */
+export interface DryRunImportResponse {
+  valid: boolean;
+  bundle_id: string;
+  dataset_id: string;
+  source_version: string;
+  /** `auto_by_effective_date` | `pinned` */
+  selection_mode: string;
+  resolved_version?: string | null;
+  entry_count: number;
+  verdict: string;
+  missing_services: string[];
+}
+
+/** 当前激活快照（来自 bundle_manifest.json 的精简视图） */
+export interface ActiveBundleInfo {
+  bundle_id: string;
+  dataset_id: string;
+  source_version: string;
+  selection_mode: string;
+  resolved_version?: string;
+  effective_from?: string;
+  content_hash: string;
+  entry_count: number;
+}
+
+/** GET /api/bundles/active 响应 */
+export interface ActiveBundlesResponse {
+  bundles: ActiveBundleInfo[];
+  count: number;
+}
+
+/** 单条导入溯源记录（管理元数据，墙钟旁路，不参与审计验证链） */
+export interface BundleImportRecord {
+  id: number;
+  bundle_id: string;
+  dataset_id: string;
+  source_version: string;
+  selection_mode: string;
+  resolved_version?: string | null;
+  content_hash: string;
+  entry_count: number;
+  imported_at: string;
+  imported_by: string;
+}
+
+/** GET /api/bundles/imports 响应 */
+export interface BundleImportsResponse {
+  imports: BundleImportRecord[];
+  count: number;
+}
+
 // ===== 异常类 =====
 
 /** evorule SDK 基础异常 */

@@ -121,6 +121,18 @@ func main() {
 | `SessionLeave(id)` | `POST /api/sessions/{id}/leave` |
 | `SessionClusterStatus(id)` | `GET /api/sessions/{id}/cluster` |
 
+### 快照包（DatasetBundle）
+
+| 方法 | 端点 |
+|---|---|
+| `ImportBundle(bundle)` | `POST /api/bundles/import` |
+| `DryRunImport(bundle)` | `POST /api/bundles/import/dry-run` |
+| `ListActiveBundles()` | `GET /api/bundles/active` |
+| `ListBundleImports(limit)` | `GET /api/bundles/imports?limit=N` |
+
+> 校验口径零复刻：六项硬校验 + 逐条 Schema 门禁由服务端执行（evorule-bundle SSOT），
+> SDK 仅做 HTTP 薄封装；400 时透传服务端 `error` 字段，不静默。
+
 ### 健康检查
 
 | 方法 | 端点 |
@@ -130,5 +142,4 @@ func main() {
 
 ## 已知限制
 
-- ❌ 不支持 SSE 事件流（`/api/sessions/{id}/events`）— 计划在 v0.2.0 补齐
-- ❌ 无单元测试 — 计划在 v0.1.x 补齐
+- ❌ 不支持同步阻塞式 API 封装 — 当前为同步 HTTP 调用，SSE 为 channel 流式接口

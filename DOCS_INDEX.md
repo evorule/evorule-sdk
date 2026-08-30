@@ -6,7 +6,7 @@
 
 # EvoRule SDK 文档总索引
 
-> **最后更新**:2026-08-01
+> **最后更新**:2026-08-30
 > **版本对齐**:SDK v0.1.0
 
 ---
@@ -83,7 +83,7 @@
 
 ## 四、API 端点覆盖矩阵
 
-SDK 覆盖的 evorule-server API 端点（截至 2026-08-01 审计）：
+SDK 覆盖的 evorule-server API 端点（截至 2026-08-30 审计）：
 
 | 端点 | Python | TypeScript | Go | Java |
 |:---|:---:|:---:|:---:|:---:|
@@ -116,6 +116,10 @@ SDK 覆盖的 evorule-server API 端点（截至 2026-08-01 审计）：
 | `/api/shared/facts/{id}/source` | ✅ | ✅ | ✅ | ✅ |
 | `/api/shared/facts/{id}/used_by` | ✅ | ✅ | ✅ | ✅ |
 | `/api/health/*` | ✅ | ✅ | ✅ | ✅ |
+| `/api/bundles/import` | ✅ | ✅ | ✅ | ✅ |
+| `/api/bundles/import/dry-run` | ✅ | ✅ | ✅ | ✅ |
+| `/api/bundles/active` | ✅ | ✅ | ✅ | ✅ |
+| `/api/bundles/imports` | ✅ | ✅ | ✅ | ✅ |
 | `/api/rules/validate` | ❌ | ❌ | ❌ | ❌ |
 | `/api/rules/reload` | ❌ | ❌ | ❌ | ❌ |
 | `/api/sessions/{id}/audit/export` | ❌ | ❌ | ❌ | ❌ |

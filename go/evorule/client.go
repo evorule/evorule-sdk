@@ -963,3 +963,180 @@ func (c *Client) Snapshot(id uint64) (*SnapshotResponse, error) {
 	}
 	return &snap, nil
 }
+
+// ===== 快照包（DatasetBundle）API =====
+//
+// 校验口径零复刻：六项校验链由服务端执行（evorule-bundle SSOT），
+// SDK 仅做 HTTP 薄封装。400 时透传服务端 error 字段，不静默。
+
+// ImportBundleResponse 对应 POST /api/bundles/import 的成功响应（导入即激活）
+type ImportBundleResponse struct {
+	Imported         bool     `json:"imported"`
+	BundleID         string   `json:"bundle_id"`
+	DatasetID        string   `json:"dataset_id"`
+	ActivatedVersion string   `json:"activated_version"`
+	EntryCount       int      `json:"entry_count"`
+	MissingServices  []string `json:"missing_services"`
+}
+
+// DryRunImportResponse 对应 POST /api/bundles/import/dry-run 的成功响应
+// （只跑校验链，不落盘不热重载）
+type DryRunImportResponse struct {
+	Valid           bool     `json:"valid"`
+	BundleID        string   `json:"bundle_id"`
+	DatasetID       string   `json:"dataset_id"`
+	SourceVersion   string   `json:"source_version"`
+	// `auto_by_effective_date` | `pinned`
+	SelectionMode   string   `json:"selection_mode"`
+	ResolvedVersion *string  `json:"resolved_version"`
+	EntryCount      int      `json:"entry_count"`
+	Verdict         string   `json:"verdict"`
+	MissingServices []string `json:"missing_services"`
+}
+
+// ActiveBundleInfo 当前激活快照（来自 bundle_manifest.json 的精简视图）
+type ActiveBundleInfo struct {
+	BundleID        string  `json:"bundle_id"`
+	DatasetID       string  `json:"dataset_id"`
+	SourceVersion   string  `json:"source_version"`
+	SelectionMode   string  `json:"selection_mode"`
+	ResolvedVersion *string `json:"resolved_version,omitempty"`
+	EffectiveFrom   *string `json:"effective_from,omitempty"`
+	ContentHash     string  `json:"content_hash"`
+	EntryCount      int     `json:"entry_count"`
+}
+
+// ActiveBundlesResponse 对应 GET /api/bundles/active 的响应
+type ActiveBundlesResponse struct {
+	Bundles []ActiveBundleInfo `json:"bundles"`
+	Count   int                `json:"count"`
+}
+
+// BundleImportRecord 单条导入溯源记录（管理元数据，墙钟旁路，不参与审计验证链）
+type BundleImportRecord struct {
+	ID              int64   `json:"id"`
+	BundleID        string  `json:"bundle_id"`
+	DatasetID       string  `json:"dataset_id"`
+	SourceVersion   string  `json:"source_version"`
+	SelectionMode   string  `json:"selection_mode"`
+	ResolvedVersion *string `json:"resolved_version"`
+	ContentHash     string  `json:"content_hash"`
+	EntryCount      int64   `json:"entry_count"`
+	ImportedAt      string  `json:"imported_at"`
+	ImportedBy      string  `json:"imported_by"`
+}
+
+// BundleImportsResponse 对应 GET /api/bundles/imports 的响应
+type BundleImportsResponse struct {
+	Imports []BundleImportRecord `json:"imports"`
+	Count   int                  `json:"count"`
+}
+
+// bundleErrFromResp 从 400 响应体提取服务端 error 字段构造错误（透传，不静默）
+func bundleErrFromResp(resp *http.Response, action string) error {
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	var errBody struct {
+		Error string `json:"error"`
+	}
+	msg := "unknown error"
+	if json.Unmarshal(body, &errBody) == nil && errBody.Error != "" {
+		msg = errBody.Error
+	}
+	return fmt.Errorf("%s: %s", action, msg)
+}
+
+// ImportBundle 导入快照包并激活（POST /api/bundles/import）
+//
+// 六项硬校验 + 逐条 Schema 门禁由服务端执行；任一失败整体拒绝，
+// 成功则原子落盘并触发滚动热重载（导入即激活）。
+//
+// bundle 为 DatasetBundle 快照包对象，原样透传，不本地校验。
+func (c *Client) ImportBundle(bundle map[string]interface{}) (*ImportBundleResponse, error) {
+	data, err := json.Marshal(map[string]interface{}{"bundle": bundle})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.doPost(c.baseURL+"/api/bundles/import", data)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusBadRequest {
+		return nil, bundleErrFromResp(resp, "bundle 导入失败")
+	}
+	if resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("failed to import bundle: %s", resp.Status)
+	}
+	var result ImportBundleResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// DryRunImport 导入预检：只跑校验链，不落盘不热重载
+// （POST /api/bundles/import/dry-run）
+//
+// bundle 为 DatasetBundle 快照包对象，原样透传，不本地校验。
+func (c *Client) DryRunImport(bundle map[string]interface{}) (*DryRunImportResponse, error) {
+	data, err := json.Marshal(map[string]interface{}{"bundle": bundle})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.doPost(c.baseURL+"/api/bundles/import/dry-run", data)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusBadRequest {
+		return nil, bundleErrFromResp(resp, "bundle 预检未通过")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to dry-run import: %s", resp.Status)
+	}
+	var result DryRunImportResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// ListActiveBundles 查询当前激活的快照包列表（GET /api/bundles/active）
+func (c *Client) ListActiveBundles() (*ActiveBundlesResponse, error) {
+	resp, err := c.doGet(c.baseURL + "/api/bundles/active")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to list active bundles: %s", resp.Status)
+	}
+	var result ActiveBundlesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// ListBundleImports 查询快照包导入溯源历史（GET /api/bundles/imports）
+//
+// limit 为返回条数上限（1-1000，服务端默认 100）；limit <= 0 时使用服务端默认值。
+func (c *Client) ListBundleImports(limit int) (*BundleImportsResponse, error) {
+	u := c.baseURL + "/api/bundles/imports"
+	if limit > 0 {
+		u = fmt.Sprintf("%s?limit=%d", u, limit)
+	}
+	resp, err := c.doGet(u)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to list bundle imports: %s", resp.Status)
+	}
+	var result BundleImportsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}

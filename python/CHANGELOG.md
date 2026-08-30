@@ -36,6 +36,17 @@
 
 ## [Unreleased]
 
+### 🆕 新增
+
+#### 快照包（DatasetBundle）API — `EvoruleClient`
+- **`import_bundle(bundle)`** — 导入快照包并激活（`POST /api/bundles/import`，导入即激活）
+- **`dry_run_import(bundle)`** — 导入预检（`POST /api/bundles/import/dry-run`，只跑校验链，不落盘不热重载）
+- **`list_active_bundles()`** — 查询当前激活的快照包列表（`GET /api/bundles/active`）
+- **`list_bundle_imports(limit)`** — 查询导入溯源历史（`GET /api/bundles/imports`）
+
+> 校验口径零复刻：六项硬校验 + 逐条 Schema 门禁由服务端执行（evorule-bundle SSOT），
+> SDK 仅做 HTTP 薄封装；400 时透传服务端 `error` 字段，不静默。
+
 ### 计划
 
 - 🆕 配合 evorule-server 新增端点

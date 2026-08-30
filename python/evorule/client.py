@@ -24,7 +24,7 @@ from typing import Any
 
 import httpx
 
-from .exceptions import AuthenticationError
+from .exceptions import AuthenticationError, EvoruleError
 from .session import Session
 
 
@@ -211,6 +211,90 @@ class EvoruleClient:
             raise AuthenticationError("Authentication failed")
         resp.raise_for_status()
         return resp.json().get("sessions", [])
+
+    # ------------------------------------------------------------------
+    # 快照包（DatasetBundle）API
+    # 校验口径零复刻：六项校验链由服务端执行（evorule-bundle SSOT），
+    # SDK 仅做 HTTP 薄封装。400 时透传服务端 error 字段，不静默。
+    # ------------------------------------------------------------------
+
+    async def import_bundle(self, bundle: dict[str, Any]) -> dict[str, Any]:
+        """导入快照包并激活（POST /api/bundles/import）
+
+        六项硬校验 + 逐条 Schema 门禁由服务端执行；任一失败整体拒绝，
+        成功则原子落盘并触发滚动热重载（导入即激活，T4）。
+
+        参数：
+            bundle: DatasetBundle 快照包对象（原样透传，不本地校验）
+
+        返回：
+            `{"imported", "bundle_id", "dataset_id", "activated_version",
+              "entry_count", "missing_services"}`
+        异常：
+            EvoruleError: 服务端校验/落盘失败（400，消息为服务端 error 字段）
+            httpx.HTTPStatusError: 其他 HTTP 错误
+        """
+        resp = await self._http.post("/api/bundles/import", json={"bundle": bundle})
+        if resp.status_code == 401:
+            raise AuthenticationError("Authentication failed")
+        if resp.status_code == 400:
+            error = resp.json().get("error", "unknown error")
+            raise EvoruleError(f"bundle 导入失败: {error}")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def dry_run_import(self, bundle: dict[str, Any]) -> dict[str, Any]:
+        """导入预检：只跑校验链，不落盘不热重载（POST /api/bundles/import/dry-run）
+
+        参数：
+            bundle: DatasetBundle 快照包对象（原样透传，不本地校验）
+
+        返回：
+            `{"valid", "bundle_id", "dataset_id", "source_version",
+              "selection_mode", "resolved_version", "entry_count",
+              "verdict", "missing_services"}`
+        异常：
+            EvoruleError: 预检未通过（400，消息为服务端 error 字段）
+        """
+        resp = await self._http.post("/api/bundles/import/dry-run", json={"bundle": bundle})
+        if resp.status_code == 401:
+            raise AuthenticationError("Authentication failed")
+        if resp.status_code == 400:
+            error = resp.json().get("error", "unknown error")
+            raise EvoruleError(f"bundle 预检未通过: {error}")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def list_active_bundles(self) -> dict[str, Any]:
+        """查询当前激活的快照包列表（GET /api/bundles/active）
+
+        返回：
+            `{"bundles": [{"bundle_id", "dataset_id", "source_version",
+              "selection_mode", "resolved_version?", "effective_from?",
+              "content_hash", "entry_count"}], "count"}`
+        """
+        resp = await self._http.get("/api/bundles/active")
+        if resp.status_code == 401:
+            raise AuthenticationError("Authentication failed")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def list_bundle_imports(self, limit: int = 100) -> dict[str, Any]:
+        """查询快照包导入溯源历史（GET /api/bundles/imports）
+
+        记录为管理元数据（含墙钟 imported_at），不参与审计验证链。
+
+        参数：
+            limit: 返回条数上限（1-1000，服务端默认 100）
+
+        返回：
+            `{"imports": [...], "count"}`
+        """
+        resp = await self._http.get("/api/bundles/imports", params={"limit": limit})
+        if resp.status_code == 401:
+            raise AuthenticationError("Authentication failed")
+        resp.raise_for_status()
+        return resp.json()
 
     async def close(self) -> None:
         """关闭客户端，释放底层 HTTP 连接"""

@@ -537,3 +537,236 @@ func TestSnapshot(t *testing.T) {
 		t.Errorf("expected steps=10, got %d", snap.Steps)
 	}
 }
+
+// === 快照包（DatasetBundle）API 测试 ===
+
+func TestImportBundle(t *testing.T) {
+	var gotPath string
+	var gotMethod string
+	var gotBody map[string]interface{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotMethod = r.Method
+		body, _ := io.ReadAll(r.Body)
+		if err := json.Unmarshal(body, &gotBody); err != nil {
+			t.Errorf("failed to parse body: %v", err)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{
+			"imported": true,
+			"bundle_id": "b-123",
+			"dataset_id": "ds-1",
+			"activated_version": "1.2.0",
+			"entry_count": 7,
+			"missing_services": []
+		}`))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv, "")
+	bundle := map[string]interface{}{"bundle_id": "b-123"}
+	resp, err := c.ImportBundle(bundle)
+	if err != nil {
+		t.Fatalf("ImportBundle failed: %v", err)
+	}
+	if gotPath != "/api/bundles/import" {
+		t.Errorf("expected /api/bundles/import, got %s", gotPath)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("expected POST, got %s", gotMethod)
+	}
+	// 请求体必须是 {"bundle": {...}} 包裹
+	inner, ok := gotBody["bundle"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected body wrapped as {bundle: {...}}, got %v", gotBody)
+	}
+	if inner["bundle_id"] != "b-123" {
+		t.Errorf("expected inner bundle_id=b-123, got %v", inner["bundle_id"])
+	}
+	if !resp.Imported {
+		t.Error("expected imported=true")
+	}
+	if resp.BundleID != "b-123" || resp.DatasetID != "ds-1" || resp.ActivatedVersion != "1.2.0" {
+		t.Errorf("response fields mismatch: %+v", resp)
+	}
+	if resp.EntryCount != 7 {
+		t.Errorf("expected entry_count=7, got %d", resp.EntryCount)
+	}
+	if len(resp.MissingServices) != 0 {
+		t.Errorf("expected empty missing_services, got %v", resp.MissingServices)
+	}
+}
+
+func TestImportBundle400ErrorTransparent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error": "bundle hash mismatch: expected abc, got def", "imported": false}`))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv, "")
+	_, err := c.ImportBundle(map[string]interface{}{})
+	if err == nil {
+		t.Fatal("expected error for 400, got nil")
+	}
+	// 服务端 error 字段必须透传，不静默
+	if !strings.Contains(err.Error(), "bundle hash mismatch: expected abc, got def") {
+		t.Errorf("expected server error to be transparent, got %v", err)
+	}
+}
+
+func TestDryRunImport(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"valid": true,
+			"bundle_id": "b-123",
+			"dataset_id": "ds-1",
+			"source_version": "1.2.0",
+			"selection_mode": "pinned",
+			"resolved_version": "1.2.0",
+			"entry_count": 7,
+			"verdict": "pass",
+			"missing_services": ["http:weather"]
+		}`))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv, "")
+	resp, err := c.DryRunImport(map[string]interface{}{"bundle_id": "b-123"})
+	if err != nil {
+		t.Fatalf("DryRunImport failed: %v", err)
+	}
+	if gotPath != "/api/bundles/import/dry-run" {
+		t.Errorf("expected /api/bundles/import/dry-run, got %s", gotPath)
+	}
+	if !resp.Valid {
+		t.Error("expected valid=true")
+	}
+	if resp.SelectionMode != "pinned" {
+		t.Errorf("expected selection_mode=pinned, got %s", resp.SelectionMode)
+	}
+	if resp.ResolvedVersion == nil || *resp.ResolvedVersion != "1.2.0" {
+		t.Errorf("expected resolved_version=1.2.0, got %v", resp.ResolvedVersion)
+	}
+	if resp.Verdict != "pass" {
+		t.Errorf("expected verdict=pass, got %s", resp.Verdict)
+	}
+	if len(resp.MissingServices) != 1 || resp.MissingServices[0] != "http:weather" {
+		t.Errorf("expected missing_services=[http:weather], got %v", resp.MissingServices)
+	}
+}
+
+func TestDryRunImport400ErrorTransparent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error": "entry 3: schema validation failed", "valid": false}`))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv, "")
+	_, err := c.DryRunImport(map[string]interface{}{})
+	if err == nil {
+		t.Fatal("expected error for 400, got nil")
+	}
+	if !strings.Contains(err.Error(), "entry 3: schema validation failed") {
+		t.Errorf("expected server error to be transparent, got %v", err)
+	}
+}
+
+func TestListActiveBundles(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"bundles": [{
+				"bundle_id": "b-123",
+				"dataset_id": "ds-1",
+				"source_version": "1.2.0",
+				"selection_mode": "pinned",
+				"resolved_version": "1.2.0",
+				"content_hash": "deadbeef",
+				"entry_count": 7
+			}],
+			"count": 1
+		}`))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv, "")
+	resp, err := c.ListActiveBundles()
+	if err != nil {
+		t.Fatalf("ListActiveBundles failed: %v", err)
+	}
+	if gotPath != "/api/bundles/active" {
+		t.Errorf("expected /api/bundles/active, got %s", gotPath)
+	}
+	if resp.Count != 1 || len(resp.Bundles) != 1 {
+		t.Fatalf("expected 1 bundle, got count=%d len=%d", resp.Count, len(resp.Bundles))
+	}
+	b := resp.Bundles[0]
+	if b.BundleID != "b-123" || b.DatasetID != "ds-1" || b.ContentHash != "deadbeef" {
+		t.Errorf("bundle fields mismatch: %+v", b)
+	}
+}
+
+func TestListBundleImports(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		if q := r.URL.RawQuery; q != "" {
+			gotPath += "?" + q
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"imports": [{
+				"id": 1,
+				"bundle_id": "b-123",
+				"dataset_id": "ds-1",
+				"source_version": "1.2.0",
+				"selection_mode": "auto_by_effective_date",
+				"resolved_version": "1.2.0",
+				"content_hash": "deadbeef",
+				"entry_count": 7,
+				"imported_at": "2026-08-30T10:00:00Z",
+				"imported_by": "admin"
+			}],
+			"count": 1
+		}`))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv, "")
+
+	t.Run("with limit", func(t *testing.T) {
+		resp, err := c.ListBundleImports(50)
+		if err != nil {
+			t.Fatalf("ListBundleImports failed: %v", err)
+		}
+		if gotPath != "/api/bundles/imports?limit=50" {
+			t.Errorf("expected /api/bundles/imports?limit=50, got %s", gotPath)
+		}
+		if resp.Count != 1 || len(resp.Imports) != 1 {
+			t.Fatalf("expected 1 import, got count=%d len=%d", resp.Count, len(resp.Imports))
+		}
+		rec := resp.Imports[0]
+		if rec.ID != 1 || rec.BundleID != "b-123" || rec.EntryCount != 7 {
+			t.Errorf("import record fields mismatch: %+v", rec)
+		}
+		if rec.ImportedBy != "admin" {
+			t.Errorf("expected imported_by=admin, got %s", rec.ImportedBy)
+		}
+	})
+
+	t.Run("without limit (server default)", func(t *testing.T) {
+		if _, err := c.ListBundleImports(0); err != nil {
+			t.Fatalf("ListBundleImports(0) failed: %v", err)
+		}
+		if gotPath != "/api/bundles/imports" {
+			t.Errorf("expected no limit param, got %s", gotPath)
+		}
+	})
+}

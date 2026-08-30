@@ -19,11 +19,16 @@
 
 import { Session } from "./session.js";
 import {
+  ActiveBundlesResponse,
   ApiResponse,
   AuthenticationError,
+  BundleImportsResponse,
   ClientOptions,
   CreateSessionResponse,
+  DryRunImportResponse,
+  EvoruleError,
   ForkSessionResponse,
+  ImportBundleResponse,
   ListSessionsResponse,
   SharedFact,
   SharedFactSourceResponse,
@@ -141,6 +146,83 @@ export class EvoruleClient {
   async sharedFactUsedBy(factId: number): Promise<SharedFactUsedByResponse> {
     const resp = await this._fetch(`/api/shared/facts/${factId}/used_by`);
     return (await resp.json()) as SharedFactUsedByResponse;
+  }
+
+  // ------------------------------------------------------------------
+  // 快照包（DatasetBundle）API
+  // 校验口径零复刻：六项校验链由服务端执行（evorule-bundle SSOT），
+  // SDK 仅做 HTTP 薄封装。400 时透传服务端 error 字段，不静默。
+  // ------------------------------------------------------------------
+
+  /** 从 400 响应体提取服务端 error 并抛出（不静默） */
+  private async _throwBundleError(resp: Response, action: string): Promise<never> {
+    let message = "unknown error";
+    try {
+      const body = (await resp.json()) as { error?: string };
+      if (body?.error) {
+        message = body.error;
+      }
+    } catch {
+      // 响应体非法 JSON 时保留默认消息
+    }
+    throw new EvoruleError(`${action}: ${message}`);
+  }
+
+  /**
+   * 导入快照包并激活（POST /api/bundles/import）
+   *
+   * 六项硬校验 + 逐条 Schema 门禁由服务端执行；任一失败整体拒绝，
+   * 成功则原子落盘并触发滚动热重载（导入即激活）。
+   *
+   * @param bundle DatasetBundle 快照包对象（原样透传，不本地校验）
+   * @throws EvoruleError 服务端校验/落盘失败（400，消息为服务端 error 字段）
+   */
+  async importBundle(bundle: Record<string, unknown>): Promise<ImportBundleResponse> {
+    const resp = await this._fetch("/api/bundles/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bundle }),
+    });
+    if (resp.status === 400) {
+      await this._throwBundleError(resp, "bundle 导入失败");
+    }
+    return (await resp.json()) as ImportBundleResponse;
+  }
+
+  /**
+   * 导入预检：只跑校验链，不落盘不热重载（POST /api/bundles/import/dry-run）
+   *
+   * @param bundle DatasetBundle 快照包对象（原样透传，不本地校验）
+   * @throws EvoruleError 预检未通过（400，消息为服务端 error 字段）
+   */
+  async dryRunImport(bundle: Record<string, unknown>): Promise<DryRunImportResponse> {
+    const resp = await this._fetch("/api/bundles/import/dry-run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bundle }),
+    });
+    if (resp.status === 400) {
+      await this._throwBundleError(resp, "bundle 预检未通过");
+    }
+    return (await resp.json()) as DryRunImportResponse;
+  }
+
+  /** 查询当前激活的快照包列表（GET /api/bundles/active） */
+  async listActiveBundles(): Promise<ActiveBundlesResponse> {
+    const resp = await this._fetch("/api/bundles/active");
+    return (await resp.json()) as ActiveBundlesResponse;
+  }
+
+  /**
+   * 查询快照包导入溯源历史（GET /api/bundles/imports）
+   *
+   * 记录为管理元数据（含墙钟 imported_at），不参与审计验证链。
+   *
+   * @param limit 返回条数上限（1-1000，服务端默认 100）
+   */
+  async listBundleImports(limit = 100): Promise<BundleImportsResponse> {
+    const resp = await this._fetch(`/api/bundles/imports?limit=${limit}`);
+    return (await resp.json()) as BundleImportsResponse;
   }
 
   /** 关闭客户端（释放资源） */

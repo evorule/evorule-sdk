@@ -368,6 +368,78 @@ public class EvoruleClient implements AutoCloseable {
         return objectMapper.treeToValue(root, SnapshotResponse.class);
     }
 
+    // ===== 快照包（DatasetBundle）API =====
+    //
+    // 校验口径零复刻：六项校验链由服务端执行（evorule-bundle SSOT），
+    // SDK 仅做 HTTP 薄封装。400 时 sendRequest 透传服务端 error 字段，不静默。
+
+    /**
+     * 导入快照包并激活（POST /api/bundles/import）
+     *
+     * 六项硬校验 + 逐条 Schema 门禁由服务端执行；任一失败整体拒绝，
+     * 成功则原子落盘并触发滚动热重载（导入即激活）。
+     *
+     * @param bundle DatasetBundle 快照包对象（原样透传，不本地校验）
+     * @throws EvoruleException 服务端校验/落盘失败（400，消息为服务端 error 字段）
+     */
+    public ImportBundleResponse importBundle(JsonNode bundle)
+            throws EvoruleException, IOException, InterruptedException {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.set("bundle", bundle);
+        HttpRequest request = requestBuilder("/api/bundles/import")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
+                .build();
+        HttpResponse<String> response = sendRequest(request);
+        return objectMapper.treeToValue(parseJson(response.body()), ImportBundleResponse.class);
+    }
+
+    /**
+     * 导入预检（POST /api/bundles/import/dry-run）：只跑校验链，不落盘不热重载。
+     *
+     * @param bundle DatasetBundle 快照包对象（原样透传，不本地校验）
+     * @throws EvoruleException 预检未通过（400，消息为服务端 error 字段）
+     */
+    public DryRunImportResponse dryRunImport(JsonNode bundle)
+            throws EvoruleException, IOException, InterruptedException {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.set("bundle", bundle);
+        HttpRequest request = requestBuilder("/api/bundles/import/dry-run")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
+                .build();
+        HttpResponse<String> response = sendRequest(request);
+        return objectMapper.treeToValue(parseJson(response.body()), DryRunImportResponse.class);
+    }
+
+    /** 查询当前激活的快照包列表（GET /api/bundles/active） */
+    public ActiveBundlesResponse listActiveBundles()
+            throws EvoruleException, IOException, InterruptedException {
+        HttpRequest request = requestBuilder("/api/bundles/active")
+                .GET()
+                .build();
+        HttpResponse<String> response = sendRequest(request);
+        return objectMapper.treeToValue(parseJson(response.body()), ActiveBundlesResponse.class);
+    }
+
+    /**
+     * 查询快照包导入溯源历史（GET /api/bundles/imports）
+     *
+     * @param limit 返回条数上限（1-1000，服务端默认 100）；null 时使用服务端默认值
+     */
+    public BundleImportsResponse listBundleImports(Integer limit)
+            throws EvoruleException, IOException, InterruptedException {
+        String url = "/api/bundles/imports";
+        if (limit != null && limit > 0) {
+            url += "?limit=" + limit;
+        }
+        HttpRequest request = requestBuilder(url)
+                .GET()
+                .build();
+        HttpResponse<String> response = sendRequest(request);
+        return objectMapper.treeToValue(parseJson(response.body()), BundleImportsResponse.class);
+    }
+
     public JsonNode health() throws EvoruleException, IOException, InterruptedException {
         HttpRequest request = requestBuilder("/api/health")
                 .GET()
