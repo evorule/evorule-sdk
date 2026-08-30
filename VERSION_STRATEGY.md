@@ -75,7 +75,7 @@ MAJOR.MINOR.PATCH
 
 ```
 evorule-sdk/                        # 一个 git 仓库（monorepo）
-├── go/          → tag: go-v0.1.0    → go get gitee.com/evo-rule-lab/evorule-sdk/go@go-v0.1.0
+├── go/          → tag: go-v0.1.0    → go get gitee.com/evorule/evorule-sdk/go@go-v0.1.0
 ├── python/      → tag: python-v0.1.0 → pip install evorule==0.1.0
 ├── typescript/  → tag: ts-v0.1.0    → npm publish evorule@0.1.0
 ├── java/        → tag: java-v0.1.0  → maven publish com.evorule:evorule-client:0.1.0

@@ -4,7 +4,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"gitee.com/evo-rule-lab/evorule-sdk/go/evorule"
+	"gitee.com/evorule/evorule-sdk/go/evorule"
 )
 
 func main() {

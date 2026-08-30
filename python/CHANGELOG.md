@@ -136,7 +136,7 @@ evorule Python SDK 首次推送版本。
 
 ## 历史背景
 
-`evorule` Python SDK 是 EvoRule 生态的官方 Python 客户端。EvoRule 反应式执行引擎本身在 [主项目](https://gitee.com/evo-rule-lab/evorule) 中,本 SDK 仅为 HTTP API 封装。
+`evorule` Python SDK 是 EvoRule 生态的官方 Python 客户端。EvoRule 反应式执行引擎本身在 [主项目](https://gitee.com/evorule/evorule) 中,本 SDK 仅为 HTTP API 封装。
 
 与 [TypeScript SDK](../typescript) 镜像对应,提供同等 API 的 Python 实现。
 
@@ -161,7 +161,7 @@ evorule Python SDK 首次推送版本。
 
 **作者**: EvoRule Project
 **邮箱**: evorulelab@gmail.com
-**Gitee**: https://gitee.com/evo-rule-lab/evorule
+**Gitee**: https://gitee.com/evorule/evorule
 **PyPI**: https://pypi.org/project/evorule/
 
 ---

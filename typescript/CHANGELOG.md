@@ -137,13 +137,13 @@ evorule TypeScript SDK 首次推送版本。
 
 ## 历史背景
 
-`@evorule/sdk` 是 EvoRule 生态的官方 TypeScript 客户端。EvoRule 反应式执行引擎本身在 [主项目](https://gitee.com/evo-rule-lab/evorule) 中,本 SDK 仅为 HTTP API 封装。
+`@evorule/sdk` 是 EvoRule 生态的官方 TypeScript 客户端。EvoRule 反应式执行引擎本身在 [主项目](https://gitee.com/evorule/evorule) 中,本 SDK 仅为 HTTP API 封装。
 
 ---
 
 **作者**: EvoRule Project
 **邮箱**: evorulelab@gmail.com
-**Gitee**: https://gitee.com/evo-rule-lab/evorule
+**Gitee**: https://gitee.com/evorule/evorule
 **npm**: https://www.npmjs.com/package/@evorule/sdk
 
 ---

@@ -148,7 +148,7 @@ Go module 不需要显式发布，通过 git tag 管理：
 
 ```bash
 # tag 已在 §3 创建并推送
-# 用户通过 go get gitee.com/evo-rule-lab/evorule-sdk/go@go-v0.1.0 获取
+# 用户通过 go get gitee.com/evorule/evorule-sdk/go@go-v0.1.0 获取
 ```
 
 ### Java SDK (Maven Central)

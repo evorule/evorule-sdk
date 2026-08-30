@@ -1,3 +1,3 @@
-module gitee.com/evo-rule-lab/evorule-sdk/go
+module gitee.com/evorule/evorule-sdk/go
 
 go 1.21

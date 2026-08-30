@@ -25,11 +25,11 @@
 
 ## 依赖说明
 
-SDK 通过 HTTP API 与 [evorule-server](https://gitee.com/evo-rule-lab/evorule-server) 通信。
+SDK 通过 HTTP API 与 [evorule-server](https://gitee.com/evorule/evorule-server) 通信。
 
 | 依赖 | 来源 | 说明 |
 |---|---|---|
-| evorule-server | [evorule-server 仓](https://gitee.com/evo-rule-lab/evorule-server) | HTTP API 后端，SDK 的运行期依赖 |
+| evorule-server | [evorule-server 仓](https://gitee.com/evorule/evorule-server) | HTTP API 后端，SDK 的运行期依赖 |
 
 ## 各语言 SDK 第三方依赖
 
@@ -61,5 +61,5 @@ SDK 通过 HTTP API 与 [evorule-server](https://gitee.com/evo-rule-lab/evorule-
 - **项目**: EvoRule SDK — 多语言客户端 SDK
 - **作者**: EvoRule Project
 - **邮箱**: <evorulelab@gmail.com>
-- **组织**: [EvoRule Lab](https://gitee.com/evo-rule-lab)
-- **Gitee**: <https://gitee.com/evo-rule-lab/evorule-sdk>
+- **组织**: [EvoRule Lab](https://gitee.com/evorule)
+- **Gitee**: <https://gitee.com/evorule/evorule-sdk>

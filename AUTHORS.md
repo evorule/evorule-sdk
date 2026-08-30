@@ -8,7 +8,7 @@
 
 本文件列出 EvoRule SDK 项目的作者和重要贡献者。
 
-EvoRule SDK 是 [EvoRule](https://gitee.com/evo-rule-lab/evorule) 框架的多语言客户端 SDK 集合，
+EvoRule SDK 是 [EvoRule](https://gitee.com/evorule/evorule) 框架的多语言客户端 SDK 集合，
 包含 Python / TypeScript / Go / Java 四种语言的 SDK。
 
 ## 项目创始人和主要作者
@@ -36,7 +36,7 @@ _尚未列出贡献者。_
 
 ## 致谢
 
-- [evorule-server](https://gitee.com/evo-rule-lab/evorule-server) 提供了 HTTP API 后端
+- [evorule-server](https://gitee.com/evorule/evorule-server) 提供了 HTTP API 后端
 - 各语言社区（Python / TypeScript / Go / Java）的工具链和生态
 
 ---
