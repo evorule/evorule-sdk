@@ -1,4 +1,8 @@
-# EvoRule SDK
+# EvoRule SDK
+
+> **仓库角色**：本仓库是 **GitHub 镜像**。权威源（primary repo）在 **Gitee**：[https://gitee.com/evorule/evorule-sdk](https://gitee.com/evorule/evorule-sdk)。
+> Issue / PR 请提交到 Gitee，GitHub 侧仅供镜像与推广展示。
+
 
 > **版本**: v0.1.0
 > **协议**: Apache-2.0
