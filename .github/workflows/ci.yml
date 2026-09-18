@@ -41,7 +41,7 @@ jobs:
 
       # 文档安全 + 引用完整性 + 基调合规（强阻塞）
       - name: check_doc_safety.py
-        run: python3 scripts/check_doc_safety.py --skip-git
+        run: python3 scripts/check_doc_safety.py --skip-git --self evorule-sdk
 
   # ===== Python SDK 测试 =====
   python-test:
@@ -115,3 +115,4 @@ jobs:
         run: |
           cd java
           ./gradlew test
+

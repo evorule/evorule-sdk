@@ -17,11 +17,11 @@ EvoRule SDK 是**独立仓**,版本号不绑定任何其他仓:
 | 仓 | 版本 | 关系 |
 |---|---|---|
 | evorule（核心） | 0.1.1 | 框架核心,Rust crate |
-| evorule-server | 0.1.0 | HTTP API 后端 |
+| [evorule-server](https://gitee.com/evorule/evorule-server) | 0.1.0 | 依赖的 HTTP API 后端 |
 | **evorule-sdk** | **0.1.0** | **本文档的主体,独立版本号** |
 
 SDK 版本号反映 **SDK 自身的变化**（新增方法、bug 修复、API 变更），
-**不**反映 evorule-server 的版本变化。例如：
+**不**反映所依赖的 [evorule-server](https://gitee.com/evorule/evorule-server) 的版本变化。例如：
 - evorule-server 从 0.1.0 升到 0.2.0，如果 API 没有 breaking change，SDK 不需要升 MAJOR
 - SDK 新增了一个 helper 方法，即使 evorule-server 没有发新版，SDK 也应该升 MINOR
 
@@ -194,15 +194,15 @@ git push origin java-v0.1.0
 
 ---
 
-## 六、与 evorule-server API 的版本映射
+## 六、与所依赖的 [evorule-server](https://gitee.com/evorule/evorule-server) API 的版本映射
 
 SDK 不强制绑定 server 版本,但 CHANGELOG 中应记录"测试通过的最高 server 版本":
 
 ```markdown
 ## [0.1.0] - 2026-08-01
 
-### 测试通过的 evorule-server 版本
-- evorule-server 0.1.0
+### 依赖的 [evorule-server](https://gitee.com/evorule/evorule-server) 测试通过版本
+- 基于 [evorule-server](https://gitee.com/evorule/evorule-server) 0.1.0
 ```
 
 用户可以参考此信息判断 SDK 与 server 的兼容性。

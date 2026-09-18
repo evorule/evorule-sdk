@@ -10,7 +10,7 @@
 
 EvoRule 框架的多语言客户端 SDK 集合。
 
-通过 HTTP API 与 [evorule-server](https://gitee.com/evorule/evorule-server) 通信,
+通过 HTTP API 与所依赖的 [evorule-server](https://gitee.com/evorule/evorule-server) 通信,
 提供会话管理、命令提交、状态查询、SSE 事件流、时间机器等能力的客户端封装。
 
 ## SDK 状态
