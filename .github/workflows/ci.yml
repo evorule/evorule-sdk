@@ -80,10 +80,10 @@ jobs:
         run: |
           cd typescript
           npm run typecheck
-      - name: Run tests
+      - name: Run unit tests（bundle API，本地 stub server，不依赖 evorule-server）
         run: |
           cd typescript
-          npm test
+          npx tsx tests/test_bundles.ts
 
   # ===== Go SDK 测试 =====
   go-test:

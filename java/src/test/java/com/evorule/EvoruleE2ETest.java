@@ -7,7 +7,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.condition.EnabledIf;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -15,12 +19,28 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@EnabledIf("com.evorule.EvoruleE2ETest#serverReachable")
 public class EvoruleE2ETest {
     private static final String BASE_URL = System.getenv().getOrDefault("EVORULE_BASE_URL", "http://localhost:18080");
     private static EvoruleClient client;
     private static ObjectMapper mapper;
     private static final AtomicInteger passed = new AtomicInteger(0);
     private static final AtomicInteger failed = new AtomicInteger(0);
+
+    /** E2E 依赖运行中的 evorule-server；不可达时整类跳过（CI 无服务端，本地启动后照常执行）。 */
+    static boolean serverReachable() {
+        try {
+            HttpURLConnection c = (HttpURLConnection) URI.create(BASE_URL + "/api/health").toURL().openConnection();
+            c.setConnectTimeout(1000);
+            c.setReadTimeout(1000);
+            int code = c.getResponseCode();
+            c.disconnect();
+            return code == 200;
+        } catch (IOException e) {
+            System.out.println("evorule-server 不可达（" + BASE_URL + "），E2E 场景跳过；本地启动服务端后重跑 ./gradlew test");
+            return false;
+        }
+    }
 
     @BeforeAll
     static void setup() {
